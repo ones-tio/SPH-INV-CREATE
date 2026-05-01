@@ -1,0 +1,982 @@
+import { useState, useEffect } from "react";
+
+const FONT = `@import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Geist+Mono:wght@400;500&family=DM+Sans:wght@400;500;600&display=swap');`;
+
+const CO = {
+  name: "KANOPI BOGOR PRO",
+  tagline: "Spesialis Kanopi & Carport",
+  addr: "Jl. Raya Bogor, Bogor, Jawa Barat",
+  hp: "0812-9876-5432",
+  email: "kanopibogorpro@gmail.com",
+  owner: "Zie",
+  bank: [
+    { name: "Bank BCA",     an: "Zie", no: "1234567890" },
+    { name: "Bank Mandiri", an: "Zie", no: "0987654321" },
+  ],
+};
+
+// ─── PROYEK CATEGORIES & PRODUCTS ───
+const PROYEK_KATEGORI = [
+  {
+    id: "besi", label: "Besi", icon: "🏗️", color: "#e8621a",
+    produk: [
+      { id:"besi-nontrans", label:"Kanopi Non Transparan", icon:"🏗️", unit:"m²", hint:"Spandek / Alderon / Onduline" },
+      { id:"besi-trans",    label:"Kanopi Transparan",     icon:"🔆", unit:"m²", hint:"Polycarbonate" },
+      { id:"besi-talang",  label:"Talang Air",             icon:"💧", unit:"m",  hint:"PVC / Galvanis" },
+      { id:"besi-plafon",  label:"Plafon",                 icon:"🪵", unit:"m²", hint:"WPC / Gypsum / PVC" },
+    ],
+  },
+  {
+    id: "aluminium", label: "Aluminium", icon: "🪟", color: "#4a90d9",
+    produk: [
+      { id:"al-pintu",    label:"Pintu Aluminium",   icon:"🚪", unit:"unit", hint:"Swing / Sliding" },
+      { id:"al-jendela",  label:"Jendela Aluminium", icon:"🪟", unit:"unit", hint:"Casement / Sliding" },
+      { id:"al-partisi",  label:"Partisi Kaca",      icon:"🔲", unit:"m²",  hint:"Frameless / Framed" },
+      { id:"al-kusen",    label:"Kusen Aluminium",   icon:"📐", unit:"m",   hint:"4 inch / 3 inch" },
+      { id:"al-acp",      label:"ACP / Cladding",    icon:"🏢", unit:"m²",  hint:"Aluminium Composite Panel" },
+    ],
+  },
+  {
+    id: "sipil", label: "Sipil", icon: "🧱", color: "#7a5c3a",
+    produk: [
+      { id:"sp-beton",    label:"Pekerjaan Beton",  icon:"🧱", unit:"m³", hint:"Cor / Sloof / Kolom" },
+      { id:"sp-bata",     label:"Pasangan Bata",    icon:"🧱", unit:"m²", hint:"Bata merah / Hebel" },
+      { id:"sp-keramik",  label:"Keramik / Lantai", icon:"⬜", unit:"m²", hint:"Pemasangan keramik" },
+      { id:"sp-cat",      label:"Pengecatan",       icon:"🎨", unit:"m²", hint:"Interior / Eksterior" },
+      { id:"sp-plester",  label:"Plesteran",        icon:"🪣", unit:"m²", hint:"Plester + Acian" },
+    ],
+  },
+  {
+    id: "advertising", label: "Advertising", icon: "📢", color: "#9b59b6",
+    produk: [
+      { id:"ad-neonbox",  label:"Neon Box",        icon:"💡", unit:"unit", hint:"LED / Akrilik" },
+      { id:"ad-huruf",    label:"Huruf Timbul",    icon:"🔤", unit:"unit", hint:"Stainless / Akrilik" },
+      { id:"ad-baliho",   label:"Baliho / Billboard", icon:"📋", unit:"m²", hint:"Digital print" },
+      { id:"ad-banner",   label:"Banner / Spanduk", icon:"🏳️", unit:"m²", hint:"Flex banner" },
+      { id:"ad-signboard",label:"Signboard",        icon:"🪧", unit:"unit", hint:"Plang nama / toko" },
+    ],
+  },
+];
+
+const ALL_PRODUK = PROYEK_KATEGORI.flatMap(k => k.produk);
+
+const fmtRp  = n => "Rp " + Math.round(n).toLocaleString("id-ID");
+const fmtD   = n => { const v=parseFloat(n)||0; return v%1===0?String(v):v.toFixed(2); };
+const today  = () => new Date().toLocaleDateString("id-ID",{day:"2-digit",month:"short",year:"numeric"});
+const BULAN  = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Ags","Sep","Okt","Nov","Des"];
+const noSPH  = id => { const d=new Date(id); return `SPH-${String(id).slice(-4)}/${BULAN[d.getMonth()]}/${d.getFullYear()}`; };
+const noINV  = (id,t) => { const d=new Date(id); return `INV-${String(id).slice(-4)}-${t}/${BULAN[d.getMonth()]}/${d.getFullYear()}`; };
+
+function terbilang(n) {
+  const s=["","Satu","Dua","Tiga","Empat","Lima","Enam","Tujuh","Delapan","Sembilan","Sepuluh","Sebelas"];
+  if(n<12) return s[n];
+  if(n<20) return s[n-10]+" Belas";
+  if(n<100) return s[Math.floor(n/10)]+" Puluh"+(n%10?" "+s[n%10]:"");
+  if(n<200) return "Seratus"+(n%100?" "+terbilang(n%100):"");
+  if(n<1000) return s[Math.floor(n/100)]+" Ratus"+(n%100?" "+terbilang(n%100):"");
+  if(n<2000) return "Seribu"+(n%1000?" "+terbilang(n%1000):"");
+  if(n<1e6) return terbilang(Math.floor(n/1000))+" Ribu"+(n%1000?" "+terbilang(n%1000):"");
+  if(n<1e9) return terbilang(Math.floor(n/1e6))+" Juta"+(n%1e6?" "+terbilang(n%1e6):"");
+  return terbilang(Math.floor(n/1e9))+" Miliar"+(n%1e9?" "+terbilang(n%1e9):"");
+}
+const toWords = n => terbilang(Math.round(n))+" Rupiah";
+
+const calcAreaVol   = (unit,dims) => dims.reduce((s,d)=>{ const p=parseFloat(d.p)||0,l=parseFloat(d.l)||0; return s+(unit==="m"||unit==="m³"?p: unit==="unit"?p : p*l); },0);
+const calcAreaVolFn = (unit,dims) => dims.reduce((s,d)=>{ const p=parseFloat(d.p)||0,l=parseFloat(d.l)||0; if(unit==="m"||unit==="unit") return s+p; if(unit==="m²") return s+p*l; if(unit==="m³") return s+p*l*(parseFloat(dims[0]?.t)||1); return s+p*l; },0);
+
+function calcVol(unit, dims) {
+  return dims.reduce((s,d) => {
+    const p=parseFloat(d.p)||0, l=parseFloat(d.l)||0, t=parseFloat(d.t)||0;
+    if (unit==="m" || unit==="unit") return s+p;
+    if (unit==="m²") return s+p*l;
+    if (unit==="m³") return s+p*l*t;
+    return s+p*l;
+  }, 0);
+}
+const calcProdukVol = (unit,areas) => areas.reduce((s,a)=>s+calcVol(unit,a.dims),0);
+
+const newDim    = () => ({id:Date.now()+Math.random(), p:"", l:"", t:""});
+const newArea   = () => ({id:Date.now()+Math.random(), label:"", dims:[newDim()]});
+const newProduk = (p) => ({
+  id: `${p.id}_${Date.now()}`,
+  typeId: p.id, icon: p.icon, unit: p.unit,
+  name: p.label, harga: "", areas: [newArea()],
+});
+
+// ─── CSS ───
+const css = `
+${FONT}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f5f3ee;--card:#fff;--ink:#1a1a18;--ink2:#4a4a46;
+  --muted:#9a9a94;--border:#e2e0d8;--orange:#e8621a;--orange-lt:#fff0e8;
+  --green:#1a7a4a;--green-lt:#e8f5ee;--red:#d63b2f;
+  --shadow:0 2px 12px rgba(0,0,0,0.07);
+}
+body{background:var(--bg);font-family:'DM Sans',sans-serif;color:var(--ink);min-height:100vh}
+.app{max-width:480px;margin:0 auto;padding:0 0 80px;min-height:100vh}
+
+.top-bar{background:var(--ink);padding:16px 20px 14px;display:flex;align-items:center;gap:12px}
+.top-icon{width:36px;height:36px;background:var(--orange);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
+.top-title{font-family:'Syne',sans-serif;font-size:17px;font-weight:800;color:#fff}
+.top-sub{font-size:11px;color:rgba(255,255,255,0.4);margin-top:1px}
+.top-count{margin-left:auto;background:var(--orange);color:#fff;font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px;font-family:'Geist Mono',monospace}
+.top-back{background:transparent;border:none;color:#fff;font-size:22px;cursor:pointer;padding:0 6px 0 0;line-height:1;touch-action:manipulation}
+
+.seg{display:grid;grid-template-columns:1fr 1fr;background:var(--card);border-bottom:1px solid var(--border)}
+.seg-btn{padding:13px 0;background:transparent;border:none;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:all 0.2s;touch-action:manipulation}
+.seg-btn.active{color:var(--orange);border-bottom-color:var(--orange)}
+
+.section{background:var(--card);border-radius:16px;margin:14px 14px 0;overflow:hidden;box-shadow:var(--shadow)}
+.sec-head{padding:14px 16px 0;display:flex;align-items:center;gap:8px}
+.sec-num{width:22px;height:22px;background:var(--orange);border-radius:6px;font-family:'Syne',sans-serif;font-size:12px;font-weight:800;color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.sec-title{font-family:'Syne',sans-serif;font-size:12px;font-weight:700;color:var(--ink2);text-transform:uppercase;letter-spacing:0.5px}
+.sec-body{padding:12px 16px 16px}
+
+.field{margin-bottom:12px}
+.field:last-child{margin-bottom:0}
+.field label{display:block;font-size:11px;font-weight:600;color:var(--muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:0.4px}
+.field input,.field textarea{width:100%;background:var(--bg);border:1.5px solid var(--border);border-radius:10px;padding:10px 12px;font-family:'DM Sans',sans-serif;font-size:14px;color:var(--ink);outline:none;transition:border-color 0.2s}
+.field input:focus,.field textarea:focus{border-color:var(--orange);background:#fff}
+.field textarea{resize:vertical;min-height:66px}
+.field input::placeholder,.field textarea::placeholder{color:var(--muted)}
+
+/* TAMBAH PROYEK BUTTON */
+.add-proyek-btn{width:100%;padding:14px;background:var(--orange-lt);border:1.5px dashed var(--orange);border-radius:12px;display:flex;align-items:center;justify-content:center;gap:8px;font-family:'Syne',sans-serif;font-size:14px;font-weight:700;color:var(--orange);cursor:pointer;touch-action:manipulation}
+.add-proyek-btn:active{background:var(--orange);color:#fff;border-style:solid}
+
+/* PRODUK CARD */
+.produk-card{border:1.5px solid var(--border);border-radius:14px;margin-bottom:12px;overflow:hidden}
+.pc-head{padding:0 13px 0 0;display:flex;align-items:center}
+.pc-icon{width:42px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;padding:11px 0}
+.pc-name-in{flex:1;background:transparent;border:none;outline:none;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;color:#fff;padding:11px 0;min-width:0}
+.pc-name-in::placeholder{color:rgba(255,255,255,0.3)}
+.pc-del{background:transparent;border:none;color:rgba(255,255,255,0.3);font-size:18px;cursor:pointer;padding:0 0 0 8px;line-height:1;flex-shrink:0;touch-action:manipulation}
+.pc-del:active{color:#ff6b6b}
+.pc-body{padding:12px;background:#fafaf8}
+
+.seg-area{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px;margin-bottom:8px}
+.seg-area-head{display:flex;align-items:center;gap:6px;margin-bottom:8px}
+.seg-area-lbl{flex:1;background:transparent;border:none;border-bottom:1.5px solid var(--border);outline:none;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;color:var(--ink2);padding:3px 2px}
+.seg-area-lbl::placeholder{color:var(--muted)}
+.seg-area-del{background:transparent;border:none;color:var(--muted);font-size:15px;cursor:pointer;padding:2px;touch-action:manipulation}
+
+.dims-row{display:flex;align-items:center;gap:5px;margin-bottom:5px}
+.d-lbl{font-size:9px;color:var(--muted);font-weight:700;width:12px;text-align:center;flex-shrink:0}
+.d-in{flex:1;min-width:0;background:var(--bg);border:1.5px solid var(--border);border-radius:7px;padding:7px 4px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--ink);outline:none;text-align:center;transition:border-color 0.2s}
+.d-in:focus{border-color:var(--orange);background:#fff}
+.d-in::placeholder{color:var(--muted);font-size:10px}
+.d-x{color:var(--muted);font-size:12px;font-weight:700;flex-shrink:0}
+.d-eq{font-family:'Geist Mono',monospace;font-size:11px;color:var(--orange);font-weight:600;white-space:nowrap;flex-shrink:0;min-width:42px;text-align:right}
+.d-del{background:transparent;border:none;color:var(--muted);font-size:13px;cursor:pointer;flex-shrink:0;padding:2px;touch-action:manipulation}
+.add-dim-btn{background:transparent;border:1px dashed var(--border);border-radius:7px;padding:6px;width:100%;margin-top:4px;font-family:'DM Sans',sans-serif;font-size:11px;font-weight:600;color:var(--muted);cursor:pointer;touch-action:manipulation}
+.seg-vol{font-family:'Geist Mono',monospace;font-size:11px;color:var(--green);font-weight:600;text-align:right;margin-top:5px}
+.add-area-btn{background:transparent;border:1px dashed var(--border);border-radius:8px;padding:8px;width:100%;margin-top:2px;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;touch-action:manipulation}
+
+.harga-row{display:flex;align-items:center;gap:8px;margin-top:8px;padding-top:8px;border-top:1px solid var(--border)}
+.harga-lbl{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;white-space:nowrap}
+.harga-in{flex:1;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;padding:8px 10px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--ink);outline:none}
+.harga-in:focus{border-color:var(--orange);background:#fff}
+.harga-unit{font-family:'Geist Mono',monospace;font-size:11px;font-weight:700;color:var(--orange);background:var(--orange-lt);padding:4px 7px;border-radius:6px;white-space:nowrap}
+.total-bar{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:9px 12px;margin-top:8px;display:flex;justify-content:space-between;align-items:center}
+.total-bar .tl{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase}
+.total-bar .tv{font-family:'Geist Mono',monospace;font-size:13px;font-weight:700;color:var(--green)}
+
+.kalkulasi-btn{width:calc(100% - 28px);margin:12px 14px 0;padding:14px;background:var(--ink);border:none;border-radius:12px;font-family:'Syne',sans-serif;font-size:15px;font-weight:700;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;touch-action:manipulation}
+.kalkulasi-btn:active{background:#333}
+.kalkulasi-btn:disabled{background:var(--border);color:var(--muted);cursor:not-allowed}
+
+.result-wrap{margin:10px 14px 0}
+.total-card{background:var(--green);border-radius:14px;padding:16px 18px;display:flex;justify-content:space-between;align-items:center}
+.tc-label{font-size:11px;font-weight:700;color:rgba(255,255,255,0.65);text-transform:uppercase;letter-spacing:0.5px}
+.tc-sub{font-size:12px;color:rgba(255,255,255,0.5);margin-top:2px}
+.tc-val{font-family:'Geist Mono',monospace;font-size:24px;font-weight:700;color:#fff}
+.diskon-box{background:var(--card);border:1.5px solid var(--border);border-radius:12px;padding:12px 14px;margin-top:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.diskon-lbl{font-size:12px;font-weight:700;color:var(--ink2);white-space:nowrap}
+.diskon-in{flex:1;min-width:80px;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;padding:8px 10px;font-family:'DM Sans',sans-serif;font-size:14px;color:var(--ink);outline:none;text-align:right}
+.diskon-in:focus{border-color:var(--orange);background:#fff}
+.diskon-toggle{display:flex;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;overflow:hidden;flex-shrink:0}
+.dt-btn{padding:7px 11px;background:transparent;border:none;font-family:'Geist Mono',monospace;font-size:12px;font-weight:700;color:var(--muted);cursor:pointer;touch-action:manipulation}
+.dt-btn.on{background:var(--orange);color:#fff}
+.diskon-nom{font-family:'Geist Mono',monospace;font-size:12px;color:var(--red);font-weight:700;width:100%;text-align:right}
+.grand-card{background:var(--ink);border-radius:14px;padding:16px 18px;display:flex;justify-content:space-between;align-items:center;margin-top:8px}
+.gc-label{font-size:11px;font-weight:700;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.5px}
+.gc-sub{font-size:11px;color:rgba(255,255,255,0.35);margin-top:2px}
+.gc-val{font-family:'Geist Mono',monospace;font-size:26px;font-weight:700;color:var(--orange)}
+
+.doc-btns{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+.btn-sph{padding:16px 8px;border:none;border-radius:12px;font-family:'Syne',sans-serif;font-size:14px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;touch-action:manipulation;width:100%;background:var(--orange);color:#fff}
+.btn-sph:active{background:#c7511a}
+.btn-inv{padding:16px 8px;border:none;border-radius:12px;font-family:'Syne',sans-serif;font-size:14px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;touch-action:manipulation;width:100%;background:var(--green);color:#fff}
+.btn-inv:active{background:#145f39}
+
+.save-btn{width:calc(100% - 28px);margin:12px 14px 0;padding:14px;background:var(--orange);border:none;border-radius:12px;font-family:'Syne',sans-serif;font-size:15px;font-weight:700;color:#fff;cursor:pointer;touch-action:manipulation}
+.save-btn:active{background:#c7511a}
+.save-btn:disabled{background:var(--border);color:var(--muted);cursor:not-allowed}
+
+/* LIST */
+.list-head{padding:16px 14px 8px;display:flex;align-items:center;justify-content:space-between}
+.list-title{font-family:'Syne',sans-serif;font-size:15px;font-weight:800}
+.clear-btn{background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--muted);font-size:11px;font-weight:600;padding:4px 10px;cursor:pointer;font-family:'DM Sans',sans-serif;touch-action:manipulation}
+.survey-card{background:var(--card);border-radius:14px;margin:0 14px 10px;padding:14px 16px;box-shadow:var(--shadow);cursor:pointer;border:1.5px solid transparent;touch-action:manipulation}
+.survey-card:active{border-color:var(--orange)}
+.sc-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px}
+.sc-name{font-family:'Syne',sans-serif;font-size:15px;font-weight:700}
+.sc-date{font-size:11px;color:var(--muted);font-family:'Geist Mono',monospace;white-space:nowrap}
+.sc-addr{font-size:12.5px;color:var(--ink2);margin-bottom:8px;line-height:1.4}
+.sc-tags{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px}
+.sc-tag{background:var(--bg);border:1px solid var(--border);font-size:11px;color:var(--ink2);font-weight:600;padding:3px 8px;border-radius:6px}
+.sc-total{display:flex;justify-content:space-between;align-items:center;background:var(--green-lt);border-radius:8px;padding:8px 12px}
+.sc-total-l{font-size:11px;font-weight:600;color:var(--green);text-transform:uppercase}
+.sc-total-v{font-family:'Geist Mono',monospace;font-size:16px;font-weight:600;color:var(--green)}
+.sc-del{background:transparent;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:2px 4px;touch-action:manipulation}
+
+.empty-state{text-align:center;padding:50px 20px;color:var(--muted)}
+.empty-icon{font-size:40px;margin-bottom:12px}
+.empty-txt{font-size:14px;line-height:1.6}
+
+/* SHEET */
+.sheet-bg{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,0.5);display:flex;align-items:flex-end}
+.sheet{background:var(--card);border-radius:20px 20px 0 0;width:100%;padding:20px;max-height:80vh;overflow-y:auto}
+.sheet-handle{width:36px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 16px}
+.sheet-title{font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:var(--ink);margin-bottom:4px}
+.sheet-sub{font-size:12px;color:var(--muted);margin-bottom:14px}
+.sheet-cancel{width:100%;margin-top:10px;padding:13px;background:var(--bg);border:none;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;color:var(--muted);cursor:pointer;touch-action:manipulation}
+
+/* CATEGORY GRID */
+.kat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:4px}
+.kat-btn{padding:14px 10px;background:var(--bg);border:1.5px solid var(--border);border-radius:12px;display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;touch-action:manipulation;transition:all 0.15s}
+.kat-btn:active{transform:scale(0.97)}
+.kat-icon{font-size:28px}
+.kat-label{font-family:'Syne',sans-serif;font-size:13px;font-weight:800;color:var(--ink)}
+
+/* PRODUK SUBMENU */
+.back-btn{background:transparent;border:none;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;color:var(--orange);cursor:pointer;display:flex;align-items:center;gap:4px;padding:0 0 12px;touch-action:manipulation}
+.produk-list{display:flex;flex-direction:column;gap:8px}
+.produk-item-btn{padding:12px 14px;background:var(--bg);border:1.5px solid var(--border);border-radius:12px;display:flex;align-items:center;gap:10px;cursor:pointer;touch-action:manipulation;text-align:left;width:100%}
+.produk-item-btn:active{border-color:var(--orange);background:var(--orange-lt)}
+.pi-icon{font-size:22px;flex-shrink:0}
+.pi-name{font-size:13px;font-weight:700;color:var(--ink);line-height:1.3}
+.pi-hint{font-size:10px;color:var(--muted);margin-top:1px}
+
+/* INVOICE PICKER */
+.inv-picker{background:var(--card);border-radius:20px 20px 0 0;width:100%;padding:20px}
+.pay-types{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;margin-bottom:14px}
+.pt-btn{padding:10px 4px;background:var(--bg);border:1.5px solid var(--border);border-radius:10px;font-family:'DM Sans',sans-serif;font-size:11px;font-weight:700;color:var(--muted);cursor:pointer;text-align:center;touch-action:manipulation}
+.pt-btn.on{background:var(--green-lt);border-color:var(--green);color:var(--green)}
+.inv-pct-row{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.inv-pct{width:72px;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;padding:9px 10px;font-family:'DM Sans',sans-serif;font-size:15px;color:var(--ink);outline:none;text-align:center}
+.inv-pct:focus{border-color:var(--green)}
+.inv-amount{flex:1;background:var(--green-lt);border:1.5px solid var(--green);border-radius:8px;padding:9px 12px;font-family:'Geist Mono',monospace;font-size:14px;font-weight:700;color:var(--green)}
+.inv-gen{width:100%;padding:14px;background:var(--green);border:none;border-radius:12px;font-family:'Syne',sans-serif;font-size:14px;font-weight:700;color:#fff;cursor:pointer;margin-top:4px;touch-action:manipulation}
+.inv-gen:active{background:#145f39}
+.inv-gen:disabled{background:var(--border);color:var(--muted);cursor:not-allowed}
+
+/* DETAIL MODAL */
+.modal-bg{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,0.5);display:flex;align-items:flex-end}
+.modal{background:var(--card);border-radius:20px 20px 0 0;width:100%;max-height:88vh;overflow-y:auto;padding:20px}
+.modal-handle{width:36px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 16px}
+.modal-name{font-family:'Syne',sans-serif;font-size:20px;font-weight:800;margin-bottom:2px}
+.modal-date{font-size:12px;color:var(--muted);font-family:'Geist Mono',monospace;margin-bottom:12px}
+.modal-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px}
+.modal-row .ml{color:var(--muted)}
+.modal-row .mr{color:var(--ink);font-weight:600;text-align:right;max-width:62%}
+.m-sec{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin:14px 0 8px}
+.mpi{background:var(--bg);border-radius:10px;padding:10px 12px;margin-bottom:7px}
+.mpi-top{display:flex;align-items:center;gap:6px;margin-bottom:4px}
+.mpi-name{font-size:13px;font-weight:700}
+.mpi-detail{font-size:12px;color:var(--ink2);line-height:1.5}
+.mpi-sub{font-family:'Geist Mono',monospace;font-size:13px;font-weight:600;color:var(--green);margin-top:5px;padding-top:5px;border-top:1px solid var(--border)}
+.m-tr{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border)}
+.m-tr .mtl{font-size:12px;color:var(--muted);font-weight:600}
+.m-tr .mtv{font-family:'Geist Mono',monospace;font-size:14px;font-weight:700;color:var(--ink)}
+.m-grand{background:var(--ink);border-radius:12px;padding:13px 16px;display:flex;justify-content:space-between;align-items:center;margin-top:8px}
+.mg-l{font-size:12px;font-weight:700;color:rgba(255,255,255,0.6);text-transform:uppercase}
+.mg-v{font-family:'Geist Mono',monospace;font-size:20px;font-weight:700;color:var(--orange)}
+.m-close{width:100%;margin-top:10px;padding:13px;background:var(--bg);border:none;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;color:var(--muted);cursor:pointer;touch-action:manipulation}
+
+/* HISTORY */
+.hist-card{background:var(--card);border-radius:14px;margin:0 14px 12px;padding:14px 16px;box-shadow:var(--shadow);border-left:4px solid var(--green)}
+.hist-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px}
+.hist-name{font-family:'Syne',sans-serif;font-size:15px;font-weight:700}
+.hist-date{font-size:11px;color:var(--muted);font-family:'Geist Mono',monospace;white-space:nowrap}
+.hist-addr{font-size:12px;color:var(--ink2);margin-bottom:8px}
+.hist-total{background:var(--green-lt);border-radius:8px;padding:7px 12px;display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.hist-total-l{font-size:11px;font-weight:600;color:var(--green);text-transform:uppercase}
+.hist-total-v{font-family:'Geist Mono',monospace;font-size:15px;font-weight:700;color:var(--green)}
+.inv-records{display:flex;flex-direction:column;gap:5px}
+.inv-rec{display:flex;justify-content:space-between;align-items:center;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:7px 10px}
+.inv-rec-label{font-size:11px;font-weight:700;color:var(--ink2)}
+.inv-rec-tgl{font-size:10px;color:var(--muted);margin-top:1px}
+.inv-rec-amount{font-family:'Geist Mono',monospace;font-size:12px;font-weight:700;color:var(--orange)}
+.add-inv-btn{width:100%;margin-top:8px;padding:10px;background:transparent;border:1.5px dashed var(--green);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;color:var(--green);cursor:pointer;touch-action:manipulation}
+.add-inv-btn:active{background:var(--green-lt)}
+
+.seg3{display:grid;grid-template-columns:1fr 1fr 1fr;background:var(--card);border-bottom:1px solid var(--border)}
+
+.doc-page{min-height:100vh;background:#f0ede6;font-family:Arial,sans-serif;font-size:13px;color:#111}
+.doc-nav{background:#1a1a18;padding:13px 16px;display:flex;align-items:center;gap:8px;position:sticky;top:0;z-index:5}
+.doc-nav-title{font-family:'Syne',sans-serif;font-size:13px;font-weight:800;color:#fff;flex:1}
+.doc-nav-pdf{background:#e8621a;color:#fff;padding:8px 12px;border-radius:8px;font-family:'Syne',sans-serif;font-size:12px;font-weight:800;border:none;cursor:pointer;touch-action:manipulation}
+.doc-nav-pdf:active{background:#c7511a}
+.paper{background:#fff;margin:14px;border-radius:4px;box-shadow:0 2px 16px rgba(0,0,0,0.12);padding:22px 18px 32px}
+.p-logo{font-size:20px;font-weight:900;color:#e8621a;letter-spacing:1px;font-family:'Syne',sans-serif}
+.p-addr{font-size:10px;color:#555;margin-top:2px;line-height:1.5}
+.p-hr{border:none;border-top:2px solid #111;margin:10px 0}
+.p-hr2{border:none;border-top:1px solid #ccc;margin:7px 0}
+.p-title{text-align:center;font-size:14px;font-weight:700;margin:8px 0 12px;font-family:'Syne',sans-serif}
+.p-meta{font-size:11px;margin-bottom:10px}
+.p-meta-row{display:flex;gap:4px;margin-bottom:3px}
+.p-meta-l{color:#666;width:66px;flex-shrink:0}
+.p-meta-v{font-weight:600}
+.p-intro{font-size:11px;margin-bottom:8px}
+.p-tbl{width:100%;border-collapse:collapse;font-size:10.5px;margin:6px 0}
+.p-tbl th{background:#1a1a18;color:#fff;padding:6px 4px;font-size:10px;text-align:left}
+.p-tbl td{padding:6px 4px;border-bottom:1px solid #eee;vertical-align:top}
+.p-tbl tr:nth-child(even) td{background:#f9f9f7}
+.p-tot-row{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #eee;font-size:11px}
+.p-grand{background:#1a1a18;color:#fff;padding:10px 12px;border-radius:6px;margin-top:4px;display:flex;justify-content:space-between;font-weight:700;font-size:13px}
+.p-dp{background:#e8f5ee;border:1px solid #1a7a4a;color:#1a7a4a;padding:10px 12px;border-radius:6px;margin-top:4px;display:flex;justify-content:space-between;font-weight:700;font-size:13px}
+.p-terbi{background:#f5f3ee;border:1px solid #ddd;border-radius:6px;padding:8px 10px;font-size:10px;font-style:italic;font-weight:600;margin:8px 0;color:#444}
+.p-syarat{font-size:10px;color:#555;padding-left:14px;margin:0}
+.p-syarat li{margin-bottom:3px}
+.p-rek{background:#f5f3ee;border:1px solid #ddd;border-radius:6px;padding:10px;font-size:11px;margin-top:8px}
+.p-ttd{text-align:right;margin-top:20px;font-size:11px}
+
+@media print{
+  .doc-nav{display:none!important}
+  .doc-page{background:#fff}
+  .paper{margin:0;box-shadow:none;border-radius:0;padding:10mm}
+}
+`;
+
+// ─── DIM ROW ───
+function DimRow({unit,dim,onUpdate,onDelete,showDel}){
+  const p=parseFloat(dim.p)||0, l=parseFloat(dim.l)||0, t=parseFloat(dim.t)||0;
+  let val = 0;
+  if(unit==="m"||unit==="unit") val=p;
+  else if(unit==="m²") val=p*l;
+  else if(unit==="m³") val=p*l*t;
+
+  return(
+    <div className="dims-row">
+      <span className="d-lbl">P</span>
+      <input className="d-in" type="number" placeholder="0" value={dim.p} onChange={e=>onUpdate("p",e.target.value)}/>
+      {(unit==="m²"||unit==="m³")&&<><span className="d-x">×</span><span className="d-lbl">L</span><input className="d-in" type="number" placeholder="0" value={dim.l} onChange={e=>onUpdate("l",e.target.value)}/></>}
+      {unit==="m³"&&<><span className="d-x">×</span><span className="d-lbl">T</span><input className="d-in" type="number" placeholder="0" value={dim.t} onChange={e=>onUpdate("t",e.target.value)}/></>}
+      <span className="d-eq">{val>0?`=${fmtD(val)}`:""}</span>
+      {showDel&&<button className="d-del" onClick={onDelete}>✕</button>}
+    </div>
+  );
+}
+
+// ─── AREA BLOCK ───
+function AreaBlock({unit,area,onUpdate,onDelete,showDel}){
+  const vol=calcVol(unit,area.dims);
+  return(
+    <div className="seg-area">
+      <div className="seg-area-head">
+        <input className="seg-area-lbl" placeholder={unit==="unit"?"Nama item":"Nama area (Garasi, Teras...)"} value={area.label} onChange={e=>onUpdate({...area,label:e.target.value})}/>
+        {showDel&&<button className="seg-area-del" onClick={onDelete}>✕</button>}
+      </div>
+      {area.dims.map(d=>(
+        <DimRow key={d.id} unit={unit} dim={d}
+          onUpdate={(k,v)=>onUpdate({...area,dims:area.dims.map(x=>x.id===d.id?{...x,[k]:v}:x)})}
+          onDelete={()=>onUpdate({...area,dims:area.dims.filter(x=>x.id!==d.id)})}
+          showDel={area.dims.length>1}/>
+      ))}
+      {unit!=="unit"&&<button className="add-dim-btn" onClick={()=>onUpdate({...area,dims:[...area.dims,newDim()]})}>+ Tambah ukuran (bentuk L / siku)</button>}
+      {vol>0&&<div className="seg-vol">
+        {area.dims.length>1
+          ? area.dims.map(d=>{const p=parseFloat(d.p)||0,l=parseFloat(d.l)||0,t=parseFloat(d.t)||0;if(unit==="m"||unit==="unit")return fmtD(p);if(unit==="m²")return`${fmtD(p)}×${fmtD(l)}`;return`${fmtD(p)}×${fmtD(l)}×${fmtD(t)}`;}).join(" + ")+` = ${fmtD(vol)} ${unit}`
+          : `${fmtD(vol)} ${unit}`}
+      </div>}
+    </div>
+  );
+}
+
+// ─── PRODUK CARD ───
+function ProdukCard({item,onUpdate,onDelete}){
+  const {id,icon,name,unit,areas,harga}=item;
+  const vol=calcProdukVol(unit,areas);
+  const sub=vol*(parseFloat(harga)||0);
+  // header color per category
+  const kat=PROYEK_KATEGORI.find(k=>k.produk.some(p=>p.id===item.typeId));
+  const headBg=kat?kat.color:"#1a1a18";
+  return(
+    <div className="produk-card">
+      <div className="pc-head" style={{background:headBg}}>
+        <span className="pc-icon">{icon}</span>
+        <input className="pc-name-in" value={name} onChange={e=>onUpdate({...item,name:e.target.value})}/>
+        <button className="pc-del" onClick={()=>onDelete(id)}>✕</button>
+      </div>
+      <div className="pc-body">
+        {areas.map(a=>(
+          <AreaBlock key={a.id} unit={unit} area={a}
+            onUpdate={u=>onUpdate({...item,areas:areas.map(x=>x.id===a.id?u:x)})}
+            onDelete={()=>onUpdate({...item,areas:areas.filter(x=>x.id!==a.id)})}
+            showDel={areas.length>1}/>
+        ))}
+        {unit!=="unit"&&<button className="add-area-btn" onClick={()=>onUpdate({...item,areas:[...areas,newArea()]})}>＋ Tambah area baru</button>}
+        <div className="harga-row">
+          <span className="harga-lbl">Harga</span>
+          <input className="harga-in" type="number" placeholder="0" value={harga} onChange={e=>onUpdate({...item,harga:e.target.value})}/>
+          <span className="harga-unit">/{unit}</span>
+        </div>
+        {vol>0&&<div className="total-bar"><span className="tl">Total {fmtD(vol)} {unit}</span>{sub>0&&<span className="tv">{fmtRp(sub)}</span>}</div>}
+      </div>
+    </div>
+  );
+}
+
+// ─── TAMBAH PROYEK SHEET ───
+function TambahProyekSheet({onPick,onClose}){
+  const [kat,setKat]=useState(null);
+  return(
+    <div className="sheet-bg" onClick={onClose}>
+      <div className="sheet" onClick={e=>e.stopPropagation()}>
+        <div className="sheet-handle"/>
+        {!kat?(
+          <>
+            <div className="sheet-title">Tambah Proyek</div>
+            <div className="sheet-sub">Pilih kategori pekerjaan</div>
+            <div className="kat-grid">
+              {PROYEK_KATEGORI.map(k=>(
+                <button key={k.id} className="kat-btn"
+                  style={{borderColor:k.color+"40",background:k.color+"0d"}}
+                  onClick={()=>setKat(k)}>
+                  <span className="kat-icon">{k.icon}</span>
+                  <span className="kat-label" style={{color:k.color}}>{k.label}</span>
+                </button>
+              ))}
+            </div>
+            <button className="sheet-cancel" onClick={onClose}>Batal</button>
+          </>
+        ):(
+          <>
+            <button className="back-btn" onClick={()=>setKat(null)}>← {kat.label}</button>
+            <div className="sheet-title">Pilih Jenis Produk</div>
+            <div className="sheet-sub" style={{marginBottom:12}}>{kat.label}</div>
+            <div className="produk-list">
+              {kat.produk.map(p=>(
+                <button key={p.id} className="produk-item-btn" onClick={()=>{onPick(p);onClose();}}>
+                  <span className="pi-icon">{p.icon}</span>
+                  <div>
+                    <div className="pi-name">{p.label}</div>
+                    <div className="pi-hint">{p.hint} · {p.unit}</div>
+                  </div>
+                </button>
+              ))}
+            </div>
+            <button className="sheet-cancel" onClick={onClose}>Batal</button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── INVOICE PICKER ───
+function InvPicker({survey,onView,onClose}){
+  const [payType,setPayType]=useState("DP1");
+  const [pct,setPct]=useState("50");
+  const gf=survey.grandFinal??survey.grandTotal;
+  const pa=Math.round(gf*(parseFloat(pct)||0)/100);
+  return(
+    <div className="sheet-bg" onClick={onClose}>
+      <div className="inv-picker" onClick={e=>e.stopPropagation()}>
+        <div className="sheet-handle"/>
+        <div className="sheet-title">🧾 Jenis Pembayaran</div>
+        <div className="pay-types">
+          {["DP1","DP2","LUNAS"].map(t=>(
+            <button key={t} className={`pt-btn ${payType===t?"on":""}`}
+              onClick={()=>{setPayType(t);if(t==="LUNAS")setPct("100");}}>
+              {t==="DP1"?"DP ke-1":t==="DP2"?"DP ke-2":"Pelunasan"}
+            </button>
+          ))}
+        </div>
+        <div style={{fontSize:11,color:"var(--muted)",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.4px",marginBottom:7}}>Persentase</div>
+        <div className="inv-pct-row">
+          <input className="inv-pct" type="number" min="1" max="100" value={pct} disabled={payType==="LUNAS"} onChange={e=>setPct(e.target.value)}/>
+          <span style={{fontWeight:700,color:"var(--muted)"}}>%</span>
+          <div className="inv-amount">{fmtRp(pa)}</div>
+        </div>
+        <div style={{fontSize:11,color:"var(--muted)",marginBottom:12}}>Grand Total: <strong style={{color:"var(--ink)"}}>{fmtRp(gf)}</strong></div>
+        <button className="inv-gen" disabled={!pa} onClick={()=>onView(payType,pa)}>🧾 Lihat Invoice</button>
+        <button className="sheet-cancel" onClick={onClose}>Batal</button>
+      </div>
+    </div>
+  );
+}
+
+// ─── BUILD HTML DOC ───
+function buildDocHTML(survey, docType, payType, payAmount) {
+  const grandFinal = survey.grandFinal ?? survey.grandTotal;
+  const isSPH = docType === "SPH";
+  const PAY_LABELS = {DP1:"Down Payment 1 (DP1)", DP2:"Down Payment 2 (DP2)", LUNAS:"Pelunasan"};
+  const amount = isSPH ? grandFinal : payAmount;
+
+  const rows = survey.produkList.map((p,i) => {
+    const dimStr = p.areas.map(a => {
+      const vol = calcVol(p.unit, a.dims);
+      const d = a.dims.map(d => {
+        const pv=parseFloat(d.p)||0,lv=parseFloat(d.l)||0,tv=parseFloat(d.t)||0;
+        if(p.unit==="m"||p.unit==="unit") return fmtD(pv);
+        if(p.unit==="m²") return `${fmtD(pv)}×${fmtD(lv)}`;
+        return `${fmtD(pv)}×${fmtD(lv)}×${fmtD(tv)}`;
+      }).join("+");
+      return `<div style="font-size:10px;color:#666">${a.label?`<strong>${a.label}: </strong>`:""}${d} = ${fmtD(vol)} ${p.unit}</div>`;
+    }).join("");
+    return `<tr style="background:${i%2===1?"#f9f9f7":"#fff"}">
+      <td style="text-align:center;padding:6px 4px;border-bottom:1px solid #eee">${i+1}</td>
+      <td style="padding:6px 4px;border-bottom:1px solid #eee"><strong>${p.name}</strong>${dimStr}</td>
+      <td style="text-align:right;padding:6px 4px;border-bottom:1px solid #eee">${fmtRp(p.harga)}</td>
+      <td style="text-align:center;padding:6px 4px;border-bottom:1px solid #eee">${p.unit}</td>
+      <td style="text-align:center;padding:6px 4px;border-bottom:1px solid #eee">${fmtD(p.totalVol)}</td>
+      <td style="text-align:right;padding:6px 4px;border-bottom:1px solid #eee"><strong>${fmtRp(p.subtotal)}</strong></td>
+    </tr>`;
+  }).join("");
+
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>${isSPH?"SPH":"Invoice_"+payType} - ${survey.nama}</title>
+  <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;font-size:12px;color:#111;background:#f0ede6}.paper{background:#fff;margin:16px;border-radius:4px;box-shadow:0 2px 16px rgba(0,0,0,.12);padding:24px 20px 40px}@media print{body{background:#fff}.paper{margin:0;box-shadow:none;padding:10mm}}</style>
+  <script>window.onload=function(){setTimeout(function(){window.print();},400);}</script>
+  </head><body><div class="paper">
+  <div style="font-size:20px;font-weight:900;color:#e8621a;letter-spacing:1px">${CO.name}</div>
+  <div style="font-size:10px;color:#555;margin-top:2px;line-height:1.5">${CO.tagline} | ${CO.addr}<br/>${CO.hp} | ${CO.email}</div>
+  <hr style="border:none;border-top:2px solid #111;margin:10px 0"/>
+  <div style="text-align:center;font-size:14px;font-weight:700;margin:8px 0 12px">${isSPH?"SURAT PENAWARAN HARGA":"INVOICE"}</div>
+  <table style="font-size:11px;margin-bottom:10px;width:auto"><tbody>
+    <tr><td style="color:#666;width:66px;padding:2px 6px 2px 0">Nomor</td><td style="font-weight:600">: ${isSPH?noSPH(survey.id):noINV(survey.id,payType)}</td></tr>
+    <tr><td style="color:#666;padding:2px 6px 2px 0">Perihal</td><td style="font-weight:600">: ${isSPH?"Penetapan Harga":PAY_LABELS[payType]}</td></tr>
+    <tr><td style="color:#666;padding:2px 6px 2px 0">Tanggal</td><td style="font-weight:600">: ${survey.tgl}</td></tr>
+    <tr><td style="color:#666;padding:2px 6px 2px 0">Kepada</td><td style="font-weight:600">: ${survey.nama}</td></tr>
+    <tr><td style="color:#666;padding:2px 6px 2px 0">Alamat</td><td style="font-weight:600">: ${survey.alamat}</td></tr>
+  </tbody></table>
+  <p style="font-size:11px;margin-bottom:8px">Dengan hormat, bersama ini kami sampaikan ${isSPH?"penawaran harga":"tagihan"} sebagai berikut:</p>
+  <table style="width:100%;border-collapse:collapse;font-size:10.5px">
+    <thead><tr>
+      <th style="background:#1a1a18;color:#fff;padding:6px 4px;width:22px;text-align:center">No</th>
+      <th style="background:#1a1a18;color:#fff;padding:6px 4px;text-align:left">Jenis Pekerjaan</th>
+      <th style="background:#1a1a18;color:#fff;padding:6px 4px;width:70px;text-align:right">Harga/Sat</th>
+      <th style="background:#1a1a18;color:#fff;padding:6px 4px;width:28px;text-align:center">Sat</th>
+      <th style="background:#1a1a18;color:#fff;padding:6px 4px;width:28px;text-align:center">Vol</th>
+      <th style="background:#1a1a18;color:#fff;padding:6px 4px;width:70px;text-align:right">Jumlah</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+  <hr style="border:none;border-top:1px solid #ccc;margin:7px 0"/>
+  <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #eee;font-size:11px"><span>Subtotal</span><span>${fmtRp(survey.grandTotal)}</span></div>
+  ${survey.diskonNominal>0?`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #eee;font-size:11px;color:#d63b2f"><span>Diskon</span><span>− ${fmtRp(survey.diskonNominal)}</span></div>`:""}
+  <div style="background:#1a1a18;color:#fff;padding:10px 12px;border-radius:6px;margin-top:4px;display:flex;justify-content:space-between;font-weight:700;font-size:13px"><span>Total Harga</span><span>${fmtRp(grandFinal)}</span></div>
+  ${!isSPH?`<div style="background:#e8f5ee;border:1px solid #1a7a4a;color:#1a7a4a;padding:10px 12px;border-radius:6px;margin-top:4px;display:flex;justify-content:space-between;font-weight:700;font-size:13px"><span>${PAY_LABELS[payType]}</span><span>${fmtRp(payAmount)}</span></div>`:""}
+  <div style="background:#f5f3ee;border:1px solid #ddd;border-radius:6px;padding:8px 10px;font-size:10px;font-style:italic;font-weight:600;margin:8px 0;color:#444">Terbilang: ${toWords(amount)}</div>
+  ${isSPH?`<p style="font-size:11px;font-weight:700;margin:10px 0 4px">Syarat & Ketentuan:</p><ul style="font-size:10px;color:#555;padding-left:14px"><li style="margin-bottom:3px">DP minimal 50% sebelum produksi dimulai</li><li style="margin-bottom:3px">Sisa 50% dibayar saat selesai pemasangan</li><li style="margin-bottom:3px">Harga tidak mengikat jika ada pekerjaan tambahan</li><li>Penawaran berlaku 14 hari sejak tanggal surat</li></ul>`:""}
+  ${!isSPH?`<p style="font-size:10px;color:#d63b2f;margin-top:6px">* Tidak menerima cash. Pelunasan max 1×24 jam setelah invoice.</p>`:""}
+  <div style="background:#f5f3ee;border:1px solid #ddd;border-radius:6px;padding:10px;font-size:11px;margin-top:8px">
+    <div style="font-weight:700;margin-bottom:4px">Pembayaran via Transfer:</div>
+    ${CO.bank.map(b=>`<div>${b.name} | a.n. ${b.an} | Rek. <strong>${b.no}</strong></div>`).join("")}
+  </div>
+  <div style="text-align:right;margin-top:20px;font-size:11px">
+    <div>Bogor, ${survey.tgl}</div><div>Hormat kami,</div>
+    <div style="height:44px"></div><div style="font-weight:700">(${CO.owner})</div>
+  </div>
+  </div></body></html>`;
+}
+
+// ─── DOC PAGE ───
+function DocPage({docData, onBack, onDownloaded}){
+  const {survey, docType, payType, payAmount} = docData;
+  const grandFinal = survey.grandFinal ?? survey.grandTotal;
+  const isSPH = docType === "SPH";
+  const PAY_LABELS = {DP1:"Down Payment 1 (DP1)", DP2:"Down Payment 2 (DP2)", LUNAS:"Pelunasan"};
+  const amount = isSPH ? grandFinal : payAmount;
+
+  const downloadDoc = () => {
+    const html = buildDocHTML(survey, docType, payType, payAmount);
+    const blob = new Blob([html], {type:"text/html;charset=utf-8"});
+    const url  = URL.createObjectURL(blob);
+    window.open(url, "_blank");
+    setTimeout(()=>{ URL.revokeObjectURL(url); }, 10000);
+    onDownloaded(survey, docType, payType, payAmount);
+  };
+
+  return(
+    <div className="doc-page">
+      <div className="doc-nav">
+        <button className="top-back" onClick={onBack}>←</button>
+        <span className="doc-nav-title">{isSPH?"📄 SPH":"🧾 Invoice - "+PAY_LABELS[payType]}</span>
+        <button className="doc-nav-pdf" onClick={downloadDoc}>🖨 Cetak / PDF</button>
+      </div>
+      <div className="paper">
+        <div className="p-logo">{CO.name}</div>
+        <div className="p-addr">{CO.tagline} | {CO.addr}<br/>{CO.hp} | {CO.email}</div>
+        <div className="p-hr"/>
+        <div className="p-title">{isSPH?"SURAT PENAWARAN HARGA":"INVOICE"}</div>
+        <div className="p-meta">
+          {[["Nomor",isSPH?noSPH(survey.id):noINV(survey.id,payType)],["Perihal",isSPH?"Penetapan Harga":PAY_LABELS[payType]],["Tanggal",survey.tgl],["Kepada",survey.nama],["Alamat",survey.alamat]].map(([l,v])=>(
+            <div key={l} className="p-meta-row"><span className="p-meta-l">{l}</span><span className="p-meta-v">: {v}</span></div>
+          ))}
+        </div>
+        <p className="p-intro">Dengan hormat, bersama ini kami sampaikan {isSPH?"penawaran harga":"tagihan"} dengan rincian sebagai berikut:</p>
+        <table className="p-tbl">
+          <thead><tr>
+            <th style={{width:22,textAlign:"center"}}>No</th><th>Jenis Pekerjaan</th>
+            <th style={{width:65,textAlign:"right"}}>Harga/Sat</th>
+            <th style={{width:26,textAlign:"center"}}>Sat</th>
+            <th style={{width:26,textAlign:"center"}}>Vol</th>
+            <th style={{width:65,textAlign:"right"}}>Jumlah</th>
+          </tr></thead>
+          <tbody>
+            {survey.produkList.map((p,i)=>(
+              <tr key={p.id} style={i%2===1?{background:"#f9f9f7"}:{}}>
+                <td style={{textAlign:"center"}}>{i+1}</td>
+                <td>
+                  <div style={{fontWeight:700}}>{p.name}</div>
+                  {p.areas.map(a=>{
+                    const vol=calcVol(p.unit,a.dims);
+                    const ds=a.dims.map(d=>{const pv=parseFloat(d.p)||0,lv=parseFloat(d.l)||0,tv=parseFloat(d.t)||0;if(p.unit==="m"||p.unit==="unit")return fmtD(pv);if(p.unit==="m²")return`${fmtD(pv)}×${fmtD(lv)}`;return`${fmtD(pv)}×${fmtD(lv)}×${fmtD(tv)}`;}).join("+");
+                    return <div key={a.id} style={{fontSize:10,color:"#666"}}>{a.label?<strong>{a.label}: </strong>:""}{ds} = {fmtD(vol)} {p.unit}</div>;
+                  })}
+                </td>
+                <td style={{textAlign:"right"}}>{fmtRp(p.harga)}</td>
+                <td style={{textAlign:"center"}}>{p.unit}</td>
+                <td style={{textAlign:"center"}}>{fmtD(p.totalVol)}</td>
+                <td style={{textAlign:"right",fontWeight:700}}>{fmtRp(p.subtotal)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <div className="p-hr2"/>
+        <div className="p-tot-row"><span>Subtotal</span><span>{fmtRp(survey.grandTotal)}</span></div>
+        {survey.diskonNominal>0&&<div className="p-tot-row" style={{color:"#d63b2f"}}><span>Diskon</span><span>− {fmtRp(survey.diskonNominal)}</span></div>}
+        <div className="p-grand"><span>Total Harga</span><span>{fmtRp(grandFinal)}</span></div>
+        {!isSPH&&<div className="p-dp"><span>{PAY_LABELS[payType]}</span><span>{fmtRp(payAmount)}</span></div>}
+        <div className="p-terbi">Terbilang: {toWords(amount)}</div>
+        {isSPH&&<><p style={{fontSize:11,fontWeight:700,margin:"10px 0 4px"}}>Syarat & Ketentuan:</p><ul className="p-syarat"><li>DP minimal 50% sebelum produksi dimulai</li><li>Sisa 50% dibayar saat selesai pemasangan</li><li>Harga tidak mengikat jika ada pekerjaan tambahan</li><li>Penawaran berlaku 14 hari sejak tanggal surat</li></ul></>}
+        {!isSPH&&<p style={{fontSize:10,color:"#d63b2f",marginTop:6}}>* Tidak menerima cash. Pelunasan max 1×24 jam setelah invoice.</p>}
+        <div className="p-rek"><div style={{fontWeight:700,marginBottom:4}}>Pembayaran via Transfer:</div>{CO.bank.map(b=><div key={b.no}>{b.name} | a.n. {b.an} | Rek. <strong>{b.no}</strong></div>)}</div>
+        <div className="p-ttd"><div>Bogor, {survey.tgl}</div><div>Hormat kami,</div><div style={{height:44}}/><div style={{fontWeight:700}}>({CO.owner})</div></div>
+      </div>
+      <div style={{margin:"0 14px 24px",background:"#fff3cd",border:"1px solid #ffc107",borderRadius:10,padding:"10px 14px",fontSize:12,color:"#856404"}}>
+        💡 Tap <strong>🖨 Cetak / PDF</strong> → tab baru terbuka → dialog print otomatis muncul → pilih <strong>"Save as PDF"</strong> atau kirim ke printer.
+      </div>
+    </div>
+  );
+}
+
+// ─── MAIN APP ───
+export default function App(){
+  const [page,setPage]         = useState("survey");
+  const [docData,setDocData]   = useState(null);
+  const [tab,setTab]           = useState("form");
+  const [showPicker,setShowPicker] = useState(false);
+  const [surveys,setSurveys]   = useState([]);
+  const [history,setHistory]   = useState([]); // deal projects
+  const [detail,setDetail]     = useState(null);
+  const [showInv,setShowInv]   = useState(false);
+  const [invSurvey,setInvSurvey] = useState(null);
+
+  const [nama,setNama]         = useState("");
+  const [alamat,setAlamat]     = useState("");
+  const [catatan,setCatatan]   = useState("");
+  const [produkList,setProdukList] = useState([]);
+  const [showTotal,setShowTotal]   = useState(false);
+  const [dMode,setDMode]       = useState("%");
+  const [dInput,setDInput]     = useState("");
+
+  useEffect(()=>{
+    (async()=>{
+      try{
+        const res=await window.storage.list("survey:");
+        if(res?.keys?.length){
+          const items=await Promise.all(res.keys.map(async k=>{
+            try{const r=await window.storage.get(k);return r?JSON.parse(r.value):null;}catch{return null;}
+          }));
+          setSurveys(items.filter(Boolean).sort((a,b)=>b.id-a.id));
+        }
+      }catch{}
+      try{
+        const res=await window.storage.list("history:");
+        if(res?.keys?.length){
+          const items=await Promise.all(res.keys.map(async k=>{
+            try{const r=await window.storage.get(k);return r?JSON.parse(r.value):null;}catch{return null;}
+          }));
+          setHistory(items.filter(Boolean).sort((a,b)=>b.id-a.id));
+        }
+      }catch{}
+    })();
+  },[]);
+
+  const saveHistory = async (survey, docType, payType, payAmount) => {
+    const PAY_LABELS = {DP1:"DP ke-1", DP2:"DP ke-2", LUNAS:"Pelunasan"};
+    // Find or create history entry for this survey
+    const existing = history.find(h=>h.surveyId===survey.id);
+    const record = { docType, payType, payAmount, label: docType==="SPH"?"SPH":PAY_LABELS[payType], tgl: today() };
+
+    if(existing){
+      // Add invoice record to existing history
+      const updated = { ...existing, invoices: [...(existing.invoices||[]), record] };
+      try{
+        await window.storage.set(`history:${existing.id}`, JSON.stringify(updated));
+        setHistory(prev=>prev.map(h=>h.id===existing.id?updated:h));
+      }catch{}
+    } else {
+      // Create new history entry
+      const newEntry = {
+        id: Date.now(),
+        surveyId: survey.id,
+        nama: survey.nama,
+        alamat: survey.alamat,
+        grandFinal: survey.grandFinal ?? survey.grandTotal,
+        tglDeal: today(),
+        produkList: survey.produkList,
+        invoices: [record],
+      };
+      try{
+        await window.storage.set(`history:${newEntry.id}`, JSON.stringify(newEntry));
+        setHistory(prev=>[newEntry,...prev]);
+      }catch{}
+    }
+  };
+
+  const tambah = p=>{setProdukList(prev=>[...prev,newProduk(p)]);setShowTotal(false);setDInput("");};
+  const updateP= u=>setProdukList(prev=>prev.map(x=>x.id===u.id?u:x));
+  const hapusP = id=>{setProdukList(prev=>prev.filter(x=>x.id!==id));setShowTotal(false);setDInput("");};
+
+  const grandTotal    = produkList.reduce((s,p)=>s+calcProdukVol(p.unit,p.areas)*(parseFloat(p.harga)||0),0);
+  const diskonNominal = (()=>{const v=parseFloat(dInput)||0;if(!v)return 0;return dMode==="%"?Math.round(grandTotal*v/100):v;})();
+  const grandFinal    = Math.max(0,grandTotal-diskonNominal);
+  const allFilled     = produkList.length>0&&produkList.every(p=>calcProdukVol(p.unit,p.areas)>0&&parseFloat(p.harga)>0);
+  const valid         = nama.trim()&&alamat.trim()&&allFilled;
+
+  const buildObj=()=>{
+    const id=Date.now();
+    const enriched=produkList.map(p=>({...p,totalVol:calcProdukVol(p.unit,p.areas),subtotal:calcProdukVol(p.unit,p.areas)*(parseFloat(p.harga)||0)}));
+    return{id,nama,alamat,catatan,produkList:enriched,grandTotal,diskonNominal,grandFinal,tgl:today()};
+  };
+
+  const goSPH=(s)=>{ setDocData({survey:s,docType:"SPH",payType:null,payAmount:null}); setPage("doc"); };
+  const goINV=(s,pt,pa)=>{ setDocData({survey:s,docType:"INV",payType:pt,payAmount:pa}); setPage("doc"); };
+
+  const simpan=async()=>{
+    if(!valid)return;
+    const item=buildObj();
+    try{
+      await window.storage.set(`survey:${item.id}`,JSON.stringify(item));
+      setSurveys(prev=>[item,...prev]);
+      setNama("");setAlamat("");setCatatan("");setProdukList([]);setShowTotal(false);setDInput("");
+      setTab("list");
+    }catch{alert("Gagal menyimpan.");}
+  };
+
+  const hapusS=async id=>{
+    try{await window.storage.delete(`survey:${id}`);setSurveys(prev=>prev.filter(s=>s.id!==id));}catch{}
+  };
+
+  if(page==="doc"&&docData){
+    return(<><style>{css}</style><DocPage docData={docData} onBack={()=>setPage("survey")} onDownloaded={saveHistory}/></>);
+  }
+
+  return(
+    <>
+      <style>{css}</style>
+      <div className="app">
+
+        <div className="top-bar">
+          <div className="top-icon">📋</div>
+          <div>
+            <div className="top-title">Survey Kanopi</div>
+            <div className="top-sub">Multi Proyek · Multi Area · Hitung Otomatis</div>
+          </div>
+          <div className="top-count">{surveys.length} data</div>
+        </div>
+
+        <div className="seg3">
+          <button className={`seg-btn ${tab==="form"?"active":""}`} onClick={()=>setTab("form")}>+ Survey</button>
+          <button className={`seg-btn ${tab==="list"?"active":""}`} onClick={()=>setTab("list")}>Riwayat ({surveys.length})</button>
+          <button className={`seg-btn ${tab==="history"?"active":""}`} onClick={()=>setTab("history")} style={tab==="history"?{color:"var(--green)",borderBottomColor:"var(--green)"}:{}}>📋 History ({history.length})</button>
+        </div>
+
+        {tab==="form"&&(<>
+          <div className="section">
+            <div className="sec-head"><div className="sec-num">1</div><div className="sec-title">Data Customer</div></div>
+            <div className="sec-body">
+              <div className="field"><label>Nama Customer</label><input placeholder="contoh: Bapak Hendra" value={nama} onChange={e=>setNama(e.target.value)}/></div>
+              <div className="field"><label>Alamat Lokasi</label><textarea placeholder="Jl. Raya Bogor No. 12..." value={alamat} onChange={e=>setAlamat(e.target.value)}/></div>
+              <div className="field" style={{marginBottom:0}}><label>Catatan</label><textarea placeholder="Warna, permintaan khusus..." value={catatan} onChange={e=>setCatatan(e.target.value)} style={{minHeight:50}}/></div>
+            </div>
+          </div>
+
+          <div className="section">
+            <div className="sec-head"><div className="sec-num">2</div><div className="sec-title">Proyek & Ukuran</div></div>
+            <div className="sec-body">
+              {produkList.map(p=><ProdukCard key={p.id} item={p} onUpdate={updateP} onDelete={hapusP}/>)}
+              <button className="add-proyek-btn" onClick={()=>setShowPicker(true)}>＋ Tambah Proyek</button>
+            </div>
+          </div>
+
+          <button className="kalkulasi-btn" disabled={!allFilled} onClick={()=>setShowTotal(true)}>
+            🧮 {allFilled?"Kalkulasi Total":"Lengkapi ukuran & harga dulu"}
+          </button>
+
+          {showTotal&&grandTotal>0&&(
+            <div className="result-wrap">
+              <div className="total-card">
+                <div><div className="tc-label">Total Keseluruhan</div><div className="tc-sub">{produkList.length} item</div></div>
+                <div className="tc-val">{fmtRp(grandTotal)}</div>
+              </div>
+              <div className="diskon-box">
+                <span className="diskon-lbl">🏷️ Diskon</span>
+                <input className="diskon-in" type="number" min="0"
+                  placeholder={dMode==="%"?"contoh: 5":"contoh: 500000"}
+                  value={dInput} onChange={e=>setDInput(e.target.value)}/>
+                <div className="diskon-toggle">
+                  <button className={`dt-btn ${dMode==="%"?"on":""}`} onClick={()=>{setDMode("%");setDInput("");}}>%</button>
+                  <button className={`dt-btn ${dMode==="Rp"?"on":""}`} onClick={()=>{setDMode("Rp");setDInput("");}}>Rp</button>
+                </div>
+                {diskonNominal>0&&<span className="diskon-nom">− {fmtRp(diskonNominal)}</span>}
+              </div>
+              <div className="grand-card">
+                <div><div className="gc-label">Grand Total</div>{diskonNominal>0&&<div className="gc-sub">Setelah diskon</div>}</div>
+                <div className="gc-val">{fmtRp(grandFinal)}</div>
+              </div>
+              <div className="doc-btns">
+                <button className="btn-sph" onClick={()=>goSPH(buildObj())}>📄 Kirim SPH</button>
+                <button className="btn-inv" onClick={()=>{setInvSurvey(buildObj());setShowInv(true);}}>🧾 Kirim Invoice</button>
+              </div>
+            </div>
+          )}
+
+          <button className="save-btn" onClick={simpan} disabled={!valid} style={{marginTop:12}}>
+            {valid?"💾 Simpan Data Survey":"Lengkapi semua data dulu"}
+          </button>
+        </>)}
+
+        {tab==="list"&&(<>
+          <div className="list-head">
+            <div className="list-title">Data Survey</div>
+            {surveys.length>0&&<button className="clear-btn" onClick={async()=>{if(!confirm("Hapus semua?"))return;for(const s of surveys){try{await window.storage.delete(`survey:${s.id}`);}catch{}}setSurveys([]);}}>Hapus Semua</button>}
+          </div>
+          {surveys.length===0?(
+            <div className="empty-state"><div className="empty-icon">📋</div><div className="empty-txt">Belum ada data.<br/>Tambah di Input Survey.</div></div>
+          ):surveys.map(s=>(
+            <div key={s.id} className="survey-card" onClick={()=>setDetail(s)}>
+              <div className="sc-top">
+                <div className="sc-name">{s.nama}</div>
+                <button className="sc-del" onClick={e=>{e.stopPropagation();hapusS(s.id);}}>🗑</button>
+              </div>
+              <div className="sc-addr">📍 {s.alamat}</div>
+              <div className="sc-tags">
+                {s.produkList.map(p=><span key={p.id} className="sc-tag">{p.icon} {p.name}</span>)}
+                <span className="sc-tag">📅 {s.tgl}</span>
+              </div>
+              <div className="sc-total">
+                <div className="sc-total-l">Grand Total</div>
+                <div className="sc-total-v">{fmtRp(s.grandFinal??s.grandTotal)}</div>
+              </div>
+            </div>
+          ))}
+        </>)}
+
+        {tab==="history"&&(<>
+          <div className="list-head">
+            <div className="list-title">📋 History Project</div>
+          </div>
+          {history.length===0?(
+            <div className="empty-state">
+              <div className="empty-icon">📋</div>
+              <div className="empty-txt">Belum ada project deal.<br/>History otomatis tercatat saat download SPH / Invoice.</div>
+            </div>
+          ):history.map(h=>(
+            <div key={h.id} className="hist-card">
+              <div className="hist-top">
+                <div className="hist-name">{h.nama}</div>
+                <div className="hist-date">Deal: {h.tglDeal}</div>
+              </div>
+              <div className="hist-addr">📍 {h.alamat}</div>
+              <div className="hist-total">
+                <span className="hist-total-l">Grand Total</span>
+                <span className="hist-total-v">{fmtRp(h.grandFinal)}</span>
+              </div>
+              <div style={{fontSize:11,fontWeight:700,color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.4px",marginBottom:5}}>Dokumen Diterbitkan</div>
+              <div className="inv-records">
+                {(h.invoices||[]).map((inv,i)=>(
+                  <div key={i} className="inv-rec">
+                    <div>
+                      <div className="inv-rec-label">{inv.label}</div>
+                      <div className="inv-rec-tgl">{inv.tgl}</div>
+                    </div>
+                    <div className="inv-rec-amount">{inv.payAmount?fmtRp(inv.payAmount):"—"}</div>
+                  </div>
+                ))}
+              </div>
+              {/* Tambah invoice baru dari history */}
+              <button className="add-inv-btn" onClick={()=>{
+                // Build minimal survey object from history
+                const fakeSurvey = {
+                  id: h.surveyId || h.id,
+                  nama: h.nama, alamat: h.alamat,
+                  catatan: "", produkList: h.produkList||[],
+                  grandTotal: h.grandFinal, diskonNominal: 0,
+                  grandFinal: h.grandFinal, tgl: today(),
+                };
+                setInvSurvey(fakeSurvey);
+                setShowInv(true);
+              }}>＋ Terbitkan Invoice Baru</button>
+            </div>
+          ))}
+        </>)}
+
+      </div>
+
+      {showPicker&&<TambahProyekSheet onPick={tambah} onClose={()=>setShowPicker(false)}/>}
+
+      {showInv&&invSurvey&&(
+        <InvPicker survey={invSurvey}
+          onView={(pt,pa)=>{setShowInv(false);goINV(invSurvey,pt,pa);}}
+          onClose={()=>{setShowInv(false);setInvSurvey(null);}}/>
+      )}
+
+      {detail&&(
+        <div className="modal-bg" onClick={()=>setDetail(null)}>
+          <div className="modal" onClick={e=>e.stopPropagation()}>
+            <div className="modal-handle"/>
+            <div className="modal-name">{detail.nama}</div>
+            <div className="modal-date">📅 {detail.tgl}</div>
+            <div className="modal-row"><span className="ml">Alamat</span><span className="mr">{detail.alamat}</span></div>
+            {detail.catatan&&<div className="modal-row"><span className="ml">Catatan</span><span className="mr">{detail.catatan}</span></div>}
+            <div className="m-sec">Detail Pekerjaan</div>
+            {detail.produkList.map(p=>(
+              <div key={p.id} className="mpi">
+                <div className="mpi-top"><span style={{fontSize:16}}>{p.icon}</span><span className="mpi-name">{p.name}</span></div>
+                <div className="mpi-detail">
+                  {p.areas.map(a=>{
+                    const vol=calcVol(p.unit,a.dims);
+                    return(<div key={a.id}>{a.label?<strong>{a.label}: </strong>:""}{a.dims.map(d=>{const pv=parseFloat(d.p)||0,lv=parseFloat(d.l)||0,tv=parseFloat(d.t)||0;if(p.unit==="m"||p.unit==="unit")return fmtD(pv);if(p.unit==="m²")return`${fmtD(pv)}×${fmtD(lv)}`;return`${fmtD(pv)}×${fmtD(lv)}×${fmtD(tv)}`;}).join("+")} = {fmtD(vol)} {p.unit}</div>);
+                  })}
+                </div>
+                <div className="mpi-sub">Total {fmtD(p.totalVol)} {p.unit} × {fmtRp(p.harga)}/{p.unit} = <strong>{fmtRp(p.subtotal)}</strong></div>
+              </div>
+            ))}
+            <div className="m-tr"><span className="mtl">Subtotal</span><span className="mtv">{fmtRp(detail.grandTotal)}</span></div>
+            {detail.diskonNominal>0&&<div className="m-tr"><span className="mtl" style={{color:"var(--red)"}}>Diskon</span><span className="mtv" style={{color:"var(--red)"}}>− {fmtRp(detail.diskonNominal)}</span></div>}
+            <div className="m-grand"><div className="mg-l">Grand Total</div><div className="mg-v">{fmtRp(detail.grandFinal??detail.grandTotal)}</div></div>
+            <div className="doc-btns" style={{marginTop:10}}>
+              <button className="btn-sph" onClick={()=>{setDetail(null);goSPH(detail);}}>📄 Kirim SPH</button>
+              <button className="btn-inv" onClick={()=>{setInvSurvey(detail);setShowInv(true);}}>🧾 Kirim Invoice</button>
+            </div>
+            <button className="m-close" onClick={()=>setDetail(null)}>Tutup</button>
+          </div>
+        </div>
+      )}
+
+      {showInv&&detail&&!invSurvey&&(
+        <InvPicker survey={detail}
+          onView={(pt,pa)=>{setShowInv(false);setDetail(null);goINV(detail,pt,pa);}}
+          onClose={()=>setShowInv(false)}/>
+      )}
+    </>
+  );
+}
