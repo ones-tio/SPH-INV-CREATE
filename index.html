@@ -1,15 +1,741 @@
-<!DOCTYPE html>
-<html lang="id">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Kanopi Bogor Pro</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Geist+Mono:wght@400;500&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
-</html>
+import { useState, useEffect } from "react";
+
+const CO = {
+  name: "KANOPI BOGOR PRO",
+  tagline: "Spesialis Kanopi & Carport",
+  addr: "Jl. Raya Bogor, Bogor, Jawa Barat",
+  hp: "0812-9876-5432",
+  email: "kanopibogorpro@gmail.com",
+  owner: "Zie",
+  bank: [
+    { name: "Bank BCA", an: "Zie", no: "1234567890" },
+    { name: "Bank Mandiri", an: "Zie", no: "0987654321" },
+  ],
+};
+
+const PROYEK_KATEGORI = [
+  {
+    id: "besi", label: "Besi", icon: "🏗️", color: "#e8621a",
+    produk: [
+      { id: "besi-nontrans", label: "Kanopi Non Transparan", icon: "🏗️", unit: "m²", hint: "Spandek / Alderon / Onduline" },
+      { id: "besi-trans", label: "Kanopi Transparan", icon: "🔆", unit: "m²", hint: "Polycarbonate" },
+      { id: "besi-talang", label: "Talang Air", icon: "💧", unit: "m", hint: "PVC / Galvanis" },
+      { id: "besi-plafon", label: "Plafon", icon: "🪵", unit: "m²", hint: "WPC / Gypsum / PVC" },
+    ],
+  },
+  {
+    id: "aluminium", label: "Aluminium", icon: "🪟", color: "#4a90d9",
+    produk: [
+      { id: "al-pintu", label: "Pintu Aluminium", icon: "🚪", unit: "unit", hint: "Swing / Sliding" },
+      { id: "al-jendela", label: "Jendela Aluminium", icon: "🪟", unit: "unit", hint: "Casement / Sliding" },
+      { id: "al-partisi", label: "Partisi Kaca", icon: "🔲", unit: "m²", hint: "Frameless / Framed" },
+      { id: "al-kusen", label: "Kusen Aluminium", icon: "📐", unit: "m", hint: "4 inch / 3 inch" },
+      { id: "al-acp", label: "ACP / Cladding", icon: "🏢", unit: "m²", hint: "Aluminium Composite Panel" },
+    ],
+  },
+  {
+    id: "sipil", label: "Sipil", icon: "🧱", color: "#7a5c3a",
+    produk: [
+      { id: "sp-beton", label: "Pekerjaan Beton", icon: "🧱", unit: "m³", hint: "Cor / Sloof / Kolom" },
+      { id: "sp-bata", label: "Pasangan Bata", icon: "🧱", unit: "m²", hint: "Bata merah / Hebel" },
+      { id: "sp-keramik", label: "Keramik / Lantai", icon: "⬜", unit: "m²", hint: "Pemasangan keramik" },
+      { id: "sp-cat", label: "Pengecatan", icon: "🎨", unit: "m²", hint: "Interior / Eksterior" },
+      { id: "sp-plester", label: "Plesteran", icon: "🪣", unit: "m²", hint: "Plester + Acian" },
+    ],
+  },
+  {
+    id: "advertising", label: "Advertising", icon: "📢", color: "#9b59b6",
+    produk: [
+      { id: "ad-neonbox", label: "Neon Box", icon: "💡", unit: "unit", hint: "LED / Akrilik" },
+      { id: "ad-huruf", label: "Huruf Timbul", icon: "🔤", unit: "unit", hint: "Stainless / Akrilik" },
+      { id: "ad-baliho", label: "Baliho / Billboard", icon: "📋", unit: "m²", hint: "Digital print" },
+      { id: "ad-banner", label: "Banner / Spanduk", icon: "🏳️", unit: "m²", hint: "Flex banner" },
+      { id: "ad-signboard", label: "Signboard", icon: "🪧", unit: "unit", hint: "Plang nama / toko" },
+    ],
+  },
+];
+
+// ─── HELPERS ───
+const fmtRp = (n) => "Rp " + Math.round(n).toLocaleString("id-ID");
+const fmtD = (n) => { const v = parseFloat(n) || 0; return v % 1 === 0 ? String(v) : v.toFixed(2); };
+const today = () => new Date().toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
+const BULAN = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Ags", "Sep", "Okt", "Nov", "Des"];
+const noSPH = (id) => { const d = new Date(id); return `SPH-${String(id).slice(-4)}/${BULAN[d.getMonth()]}/${d.getFullYear()}`; };
+const noINV = (id, t) => { const d = new Date(id); return `INV-${String(id).slice(-4)}-${t}/${BULAN[d.getMonth()]}/${d.getFullYear()}`; };
+
+function terbilang(n) {
+  const s = ["", "Satu", "Dua", "Tiga", "Empat", "Lima", "Enam", "Tujuh", "Delapan", "Sembilan", "Sepuluh", "Sebelas"];
+  if (n < 12) return s[n];
+  if (n < 20) return s[n - 10] + " Belas";
+  if (n < 100) return s[Math.floor(n / 10)] + " Puluh" + (n % 10 ? " " + s[n % 10] : "");
+  if (n < 200) return "Seratus" + (n % 100 ? " " + terbilang(n % 100) : "");
+  if (n < 1000) return s[Math.floor(n / 100)] + " Ratus" + (n % 100 ? " " + terbilang(n % 100) : "");
+  if (n < 2000) return "Seribu" + (n % 1000 ? " " + terbilang(n % 1000) : "");
+  if (n < 1e6) return terbilang(Math.floor(n / 1000)) + " Ribu" + (n % 1000 ? " " + terbilang(n % 1000) : "");
+  if (n < 1e9) return terbilang(Math.floor(n / 1e6)) + " Juta" + (n % 1e6 ? " " + terbilang(n % 1e6) : "");
+  return terbilang(Math.floor(n / 1e9)) + " Miliar" + (n % 1e9 ? " " + terbilang(n % 1e9) : "");
+}
+const toWords = (n) => terbilang(Math.round(n)) + " Rupiah";
+
+function calcVol(unit, dims) {
+  return dims.reduce((s, d) => {
+    const p = parseFloat(d.p) || 0, l = parseFloat(d.l) || 0, t = parseFloat(d.t) || 0;
+    if (unit === "m" || unit === "unit") return s + p;
+    if (unit === "m²") return s + p * l;
+    if (unit === "m³") return s + p * l * t;
+    return s + p * l;
+  }, 0);
+}
+const calcProdukVol = (unit, areas) => areas.reduce((s, a) => s + calcVol(unit, a.dims), 0);
+
+const newDim = () => ({ id: Date.now() + Math.random(), p: "", l: "", t: "" });
+const newArea = () => ({ id: Date.now() + Math.random(), label: "", dims: [newDim()] });
+const newProduk = (p) => ({
+  id: `${p.id}_${Date.now()}`,
+  typeId: p.id,
+  icon: p.icon,
+  unit: p.unit,
+  name: p.label,
+  harga: "",
+  areas: [newArea()],
+});
+
+// ─── localStorage helpers ───
+const lsGet = (key) => { try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : null; } catch { return null; } };
+const lsSet = (key, val) => { try { localStorage.setItem(key, JSON.stringify(val)); } catch { } };
+const lsDel = (key) => { try { localStorage.removeItem(key); } catch { } };
+const lsKeys = (prefix) => { try { return Object.keys(localStorage).filter(k => k.startsWith(prefix)); } catch { return []; } };
+
+// ─── DIM ROW ───
+function DimRow({ unit, dim, onUpdate, onDelete, showDel }) {
+  const p = parseFloat(dim.p) || 0, l = parseFloat(dim.l) || 0, t = parseFloat(dim.t) || 0;
+  let val = 0;
+  if (unit === "m" || unit === "unit") val = p;
+  else if (unit === "m²") val = p * l;
+  else if (unit === "m³") val = p * l * t;
+  return (
+    <div className="dims-row">
+      <span className="d-lbl">P</span>
+      <input className="d-in" type="number" min="0" placeholder="0" value={dim.p} onChange={e => onUpdate("p", e.target.value)} />
+      {(unit === "m²" || unit === "m³") && (<>
+        <span className="d-x">×</span><span className="d-lbl">L</span>
+        <input className="d-in" type="number" min="0" placeholder="0" value={dim.l} onChange={e => onUpdate("l", e.target.value)} />
+      </>)}
+      {unit === "m³" && (<>
+        <span className="d-x">×</span><span className="d-lbl">T</span>
+        <input className="d-in" type="number" min="0" placeholder="0" value={dim.t} onChange={e => onUpdate("t", e.target.value)} />
+      </>)}
+      <span className="d-eq">{val > 0 ? `=${fmtD(val)}` : ""}</span>
+      {showDel && <button className="d-del" onClick={onDelete}>✕</button>}
+    </div>
+  );
+}
+
+// ─── AREA BLOCK ───
+function AreaBlock({ unit, area, onUpdate, onDelete, showDel }) {
+  const vol = calcVol(unit, area.dims);
+  return (
+    <div className="seg-area">
+      <div className="seg-area-head">
+        <input className="seg-area-lbl" placeholder="Nama area (opsional)" value={area.label} onChange={e => onUpdate({ ...area, label: e.target.value })} />
+        {showDel && <button className="seg-area-del" onClick={onDelete}>✕</button>}
+      </div>
+      {area.dims.map(d => (
+        <DimRow key={d.id} unit={unit} dim={d}
+          onUpdate={(k, v) => onUpdate({ ...area, dims: area.dims.map(x => x.id === d.id ? { ...x, [k]: v } : x) })}
+          onDelete={() => onUpdate({ ...area, dims: area.dims.filter(x => x.id !== d.id) })}
+          showDel={area.dims.length > 1} />
+      ))}
+      {unit !== "unit" && (
+        <button className="add-dim-btn" onClick={() => onUpdate({ ...area, dims: [...area.dims, newDim()] })}>
+          + Tambah ukuran (bentuk L / siku)
+        </button>
+      )}
+      {vol > 0 && (
+        <div className="seg-vol">
+          {area.dims.length > 1
+            ? area.dims.map(d => {
+              const p = parseFloat(d.p) || 0, l = parseFloat(d.l) || 0, t = parseFloat(d.t) || 0;
+              if (unit === "m" || unit === "unit") return fmtD(p);
+              if (unit === "m²") return `${fmtD(p)}×${fmtD(l)}`;
+              return `${fmtD(p)}×${fmtD(l)}×${fmtD(t)}`;
+            }).join(" + ") + ` = ${fmtD(vol)} ${unit}`
+            : `${fmtD(vol)} ${unit}`}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── PRODUK CARD ───
+function ProdukCard({ item, onUpdate, onDelete }) {
+  const { id, icon, name, unit, areas, harga } = item;
+  const vol = calcProdukVol(unit, areas);
+  const sub = vol * (parseFloat(harga) || 0);
+  const kat = PROYEK_KATEGORI.find(k => k.produk.some(p => p.id === item.typeId));
+  const headBg = kat ? kat.color : "#1a1a18";
+  return (
+    <div className="produk-card">
+      <div className="pc-head" style={{ background: headBg }}>
+        <div className="pc-icon">{icon}</div>
+        <input className="pc-name-in" value={name} placeholder="Nama pekerjaan" onChange={e => onUpdate({ ...item, name: e.target.value })} />
+        <button className="pc-del" onClick={() => onDelete(id)}>✕</button>
+      </div>
+      <div className="pc-body">
+        {areas.map(a => (
+          <AreaBlock key={a.id} unit={unit} area={a}
+            onUpdate={u => onUpdate({ ...item, areas: areas.map(x => x.id === a.id ? u : x) })}
+            onDelete={() => onUpdate({ ...item, areas: areas.filter(x => x.id !== a.id) })}
+            showDel={areas.length > 1} />
+        ))}
+        {unit !== "unit" && (
+          <button className="add-area-btn" onClick={() => onUpdate({ ...item, areas: [...areas, newArea()] })}>
+            ＋ Tambah area baru
+          </button>
+        )}
+        <div className="harga-row">
+          <span className="harga-lbl">Harga</span>
+          <input className="harga-in" type="number" min="0" placeholder="0" value={harga} onChange={e => onUpdate({ ...item, harga: e.target.value })} />
+          <span className="harga-unit">/{unit}</span>
+        </div>
+        {vol > 0 && (
+          <div className="total-bar">
+            <span className="tl">Total {fmtD(vol)} {unit}</span>
+            {sub > 0 && <span className="tv">{fmtRp(sub)}</span>}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── TAMBAH PROYEK SHEET ───
+function TambahProyekSheet({ onPick, onClose }) {
+  const [kat, setKat] = useState(null);
+  return (
+    <div className="sheet-bg" onClick={onClose}>
+      <div className="sheet" onClick={e => e.stopPropagation()}>
+        <div className="sheet-handle" />
+        {!kat ? (
+          <>
+            <div className="sheet-title">Tambah Proyek</div>
+            <div className="sheet-sub">Pilih kategori pekerjaan</div>
+            <div className="kat-grid">
+              {PROYEK_KATEGORI.map(k => (
+                <button key={k.id} className="kat-btn" onClick={() => setKat(k)}>
+                  <span className="kat-icon">{k.icon}</span>
+                  <span className="kat-label">{k.label}</span>
+                </button>
+              ))}
+            </div>
+            <button className="sheet-cancel" onClick={onClose}>Batal</button>
+          </>
+        ) : (
+          <>
+            <button className="back-btn" onClick={() => setKat(null)}>← {kat.label}</button>
+            <div className="sheet-title">Pilih Jenis Produk</div>
+            <div className="sheet-sub">{kat.label}</div>
+            <div className="produk-list">
+              {kat.produk.map(p => (
+                <button key={p.id} className="produk-item-btn" onClick={() => { onPick(p); onClose(); }}>
+                  <span className="pi-icon">{p.icon}</span>
+                  <div>
+                    <div className="pi-name">{p.label}</div>
+                    <div className="pi-hint">{p.hint} · {p.unit}</div>
+                  </div>
+                </button>
+              ))}
+            </div>
+            <button className="sheet-cancel" onClick={onClose}>Batal</button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── INVOICE PICKER ───
+function InvPicker({ survey, onView, onClose }) {
+  const [payType, setPayType] = useState("DP1");
+  const [pct, setPct] = useState("50");
+  const gf = survey.grandFinal ?? survey.grandTotal;
+  const pa = Math.round(gf * (parseFloat(pct) || 0) / 100);
+  return (
+    <div className="sheet-bg" onClick={onClose}>
+      <div className="inv-picker" onClick={e => e.stopPropagation()}>
+        <div className="sheet-handle" />
+        <div className="sheet-title">🧾 Jenis Pembayaran</div>
+        <div className="pay-types">
+          {["DP1", "DP2", "LUNAS"].map(t => (
+            <button key={t} className={`pt-btn ${payType === t ? "on" : ""}`}
+              onClick={() => { setPayType(t); if (t === "LUNAS") setPct("100"); }}>
+              {t === "DP1" ? "DP ke-1" : t === "DP2" ? "DP ke-2" : "Pelunasan"}
+            </button>
+          ))}
+        </div>
+        <div className="inv-pct-row">
+          <span style={{ fontSize: 13, fontWeight: 600, color: "var(--muted)" }}>Persentase</span>
+          <input className="inv-pct" type="number" min="0" max="100" value={pct} onChange={e => setPct(e.target.value)} />
+          <span style={{ fontSize: 13, color: "var(--muted)" }}>%</span>
+          <div className="inv-amount">{fmtRp(pa)}</div>
+        </div>
+        <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 10 }}>Grand Total: {fmtRp(gf)}</div>
+        <button className="inv-gen" onClick={() => onView(payType, pa)}>🧾 Lihat Invoice</button>
+        <button className="sheet-cancel" onClick={onClose}>Batal</button>
+      </div>
+    </div>
+  );
+}
+
+// ─── BUILD HTML DOC ───
+function buildDocHTML(survey, docType, payType, payAmount) {
+  const grandFinal = survey.grandFinal ?? survey.grandTotal;
+  const isSPH = docType === "SPH";
+  const PAY_LABELS = { DP1: "Down Payment 1 (DP1)", DP2: "Down Payment 2 (DP2)", LUNAS: "Pelunasan" };
+  const amount = isSPH ? grandFinal : payAmount;
+  const rows = survey.produkList.map((p, i) => {
+    const dimStr = p.areas.map(a => {
+      const vol = calcVol(p.unit, a.dims);
+      const d = a.dims.map(d => {
+        const pv = parseFloat(d.p) || 0, lv = parseFloat(d.l) || 0, tv = parseFloat(d.t) || 0;
+        if (p.unit === "m" || p.unit === "unit") return fmtD(pv);
+        if (p.unit === "m²") return `${fmtD(pv)}×${fmtD(lv)}`;
+        return `${fmtD(pv)}×${fmtD(lv)}×${fmtD(tv)}`;
+      }).join("+");
+      return `<div style="font-size:9px;color:#555">${a.label ? `${a.label}: ` : ""}${d} = ${fmtD(vol)} ${p.unit}</div>`;
+    }).join("");
+    return `<tr><td>${i + 1}</td><td>${p.name}${dimStr}</td><td>${fmtRp(p.harga)}</td><td>${p.unit}</td><td>${fmtD(p.totalVol)}</td><td>${fmtRp(p.subtotal)}</td></tr>`;
+  }).join("");
+
+  return `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>${isSPH ? "SPH" : "Invoice"} - ${survey.nama}</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}body{background:#f0ede6;font-family:Arial,sans-serif;font-size:13px;color:#111}
+.paper{background:#fff;margin:20px auto;max-width:700px;border-radius:4px;box-shadow:0 2px 16px rgba(0,0,0,.12);padding:28px 24px 40px}
+.logo{font-size:22px;font-weight:900;color:#e8621a;letter-spacing:1px;font-family:'Syne',sans-serif}
+.addr{font-size:10px;color:#555;margin-top:3px;line-height:1.6}
+hr{border:none;border-top:2px solid #111;margin:10px 0}.hr2{border-color:#ccc;border-width:1px}
+.title{text-align:center;font-size:15px;font-weight:700;margin:10px 0 14px;font-family:'Syne',sans-serif}
+.meta{font-size:11px;margin-bottom:12px}.meta-row{display:flex;gap:5px;margin-bottom:4px}
+.ml{color:#666;width:70px;flex-shrink:0}.mv{font-weight:600}
+table{width:100%;border-collapse:collapse;font-size:10.5px;margin:8px 0}
+th{background:#1a1a18;color:#fff;padding:7px 5px;font-size:10px;text-align:left}
+td{padding:7px 5px;border-bottom:1px solid #eee;vertical-align:top}
+tr:nth-child(even) td{background:#f9f9f7}
+.tot-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #eee;font-size:11px}
+.grand{background:#1a1a18;color:#fff;padding:11px 14px;border-radius:6px;margin-top:5px;display:flex;justify-content:space-between;font-weight:700;font-size:14px}
+.dp{background:#e8f5ee;border:1px solid #1a7a4a;color:#1a7a4a;padding:11px 14px;border-radius:6px;margin-top:5px;display:flex;justify-content:space-between;font-weight:700;font-size:14px}
+.terbi{background:#f5f3ee;border:1px solid #ddd;border-radius:6px;padding:9px 12px;font-size:10px;font-style:italic;font-weight:600;margin:10px 0;color:#444}
+.syarat{font-size:10px;color:#555;padding-left:16px}.syarat li{margin-bottom:3px}
+.rek{background:#f5f3ee;border:1px solid #ddd;border-radius:6px;padding:12px;font-size:11px;margin-top:10px}
+.ttd{text-align:right;margin-top:24px;font-size:11px}
+@media print{body{background:#fff}.paper{margin:0;box-shadow:none;border-radius:0;padding:10mm}}
+</style>
+<script>window.onload=()=>window.print()</script>
+</head><body><div class="paper">
+<div class="logo">${CO.name}</div>
+<div class="addr">${CO.tagline} | ${CO.addr}<br/>${CO.hp} | ${CO.email}</div>
+<hr/><div class="title">${isSPH ? "SURAT PENAWARAN HARGA" : "INVOICE"}</div>
+<div class="meta">
+<div class="meta-row"><span class="ml">Nomor</span><span class="mv">: ${isSPH ? noSPH(survey.id) : noINV(survey.id, payType)}</span></div>
+<div class="meta-row"><span class="ml">Perihal</span><span class="mv">: ${isSPH ? "Penetapan Harga" : PAY_LABELS[payType]}</span></div>
+<div class="meta-row"><span class="ml">Tanggal</span><span class="mv">: ${survey.tgl}</span></div>
+<div class="meta-row"><span class="ml">Kepada</span><span class="mv">: ${survey.nama}</span></div>
+<div class="meta-row"><span class="ml">Alamat</span><span class="mv">: ${survey.alamat}</span></div>
+</div>
+<p style="font-size:11px;margin-bottom:8px">Dengan hormat, bersama ini kami sampaikan ${isSPH ? "penawaran harga" : "tagihan"} sebagai berikut:</p>
+<table><tr><th>No</th><th>Jenis Pekerjaan</th><th>Harga/Sat</th><th>Sat</th><th>Vol</th><th>Jumlah</th></tr>${rows}</table>
+<div class="tot-row"><span>Subtotal</span><span>${fmtRp(survey.grandTotal)}</span></div>
+${survey.diskonNominal > 0 ? `<div class="tot-row"><span>Diskon</span><span style="color:#d63b2f">− ${fmtRp(survey.diskonNominal)}</span></div>` : ""}
+<div class="grand"><span>Total Harga</span><span>${fmtRp(grandFinal)}</span></div>
+${!isSPH ? `<div class="dp"><span>${PAY_LABELS[payType]}</span><span>${fmtRp(payAmount)}</span></div>` : ""}
+<div class="terbi">Terbilang: ${toWords(amount)}</div>
+${isSPH ? `<p style="font-size:11px;font-weight:700;margin-bottom:6px">Syarat & Ketentuan:</p><ul class="syarat"><li>DP minimal 50% sebelum produksi dimulai</li><li>Sisa 50% dibayar saat selesai pemasangan</li><li>Harga tidak mengikat jika ada pekerjaan tambahan</li><li>Penawaran berlaku 14 hari sejak tanggal surat</li></ul>` : `<p style="font-size:10px;color:#555;margin-top:6px">* Tidak menerima cash. Pelunasan max 1×24 jam setelah invoice.</p>`}
+<div class="rek"><strong>Pembayaran via Transfer:</strong><br/>${CO.bank.map(b => `${b.name} | a.n. ${b.an} | Rek. ${b.no}`).join("<br/>")}</div>
+<div class="ttd">Bogor, ${survey.tgl}<br/><br/><br/>Hormat kami,<br/><strong>(${CO.owner})</strong></div>
+</div></body></html>`;
+}
+
+// ─── DOC PAGE ───
+function DocPage({ docData, onBack, onDownloaded }) {
+  const { survey, docType, payType, payAmount } = docData;
+  const grandFinal = survey.grandFinal ?? survey.grandTotal;
+  const isSPH = docType === "SPH";
+  const PAY_LABELS = { DP1: "Down Payment 1 (DP1)", DP2: "Down Payment 2 (DP2)", LUNAS: "Pelunasan" };
+  const amount = isSPH ? grandFinal : payAmount;
+
+  const downloadDoc = () => {
+    const html = buildDocHTML(survey, docType, payType, payAmount);
+    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank");
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    onDownloaded(survey, docType, payType, payAmount);
+  };
+
+  return (
+    <div className="doc-page">
+      <div className="doc-nav">
+        <button className="top-back" onClick={onBack}>←</button>
+        <span className="doc-nav-title">{isSPH ? "📄 SPH" : "🧾 Invoice - " + PAY_LABELS[payType]}</span>
+        <button className="doc-nav-pdf" onClick={downloadDoc}>🖨 Cetak / PDF</button>
+      </div>
+      <div className="paper">
+        <div className="p-logo">{CO.name}</div>
+        <div className="p-addr">{CO.tagline} | {CO.addr}<br />{CO.hp} | {CO.email}</div>
+        <hr className="p-hr" />
+        <div className="p-title">{isSPH ? "SURAT PENAWARAN HARGA" : "INVOICE"}</div>
+        <div className="p-meta">
+          {[["Nomor", isSPH ? noSPH(survey.id) : noINV(survey.id, payType)], ["Perihal", isSPH ? "Penetapan Harga" : PAY_LABELS[payType]], ["Tanggal", survey.tgl], ["Kepada", survey.nama], ["Alamat", survey.alamat]].map(([l, v]) => (
+            <div key={l} className="p-meta-row"><span className="p-meta-l">{l}</span><span className="p-meta-v">: {v}</span></div>
+          ))}
+        </div>
+        <p className="p-intro">Dengan hormat, bersama ini kami sampaikan {isSPH ? "penawaran harga" : "tagihan"} dengan rincian sebagai berikut:</p>
+        <table className="p-tbl">
+          <thead><tr><th>No</th><th>Jenis Pekerjaan</th><th>Harga/Sat</th><th>Sat</th><th>Vol</th><th>Jumlah</th></tr></thead>
+          <tbody>
+            {survey.produkList.map((p, i) => (
+              <tr key={p.id}>
+                <td>{i + 1}</td>
+                <td>
+                  <strong>{p.name}</strong>
+                  {p.areas.map(a => {
+                    const vol = calcVol(p.unit, a.dims);
+                    const ds = a.dims.map(d => {
+                      const pv = parseFloat(d.p) || 0, lv = parseFloat(d.l) || 0, tv = parseFloat(d.t) || 0;
+                      if (p.unit === "m" || p.unit === "unit") return fmtD(pv);
+                      if (p.unit === "m²") return `${fmtD(pv)}×${fmtD(lv)}`;
+                      return `${fmtD(pv)}×${fmtD(lv)}×${fmtD(tv)}`;
+                    }).join("+");
+                    return <div key={a.id} style={{ fontSize: 9, color: "#555" }}>{a.label ? <strong>{a.label}: </strong> : ""}{ds} = {fmtD(vol)} {p.unit}</div>;
+                  })}
+                </td>
+                <td>{fmtRp(p.harga)}</td><td>{p.unit}</td><td>{fmtD(p.totalVol)}</td><td>{fmtRp(p.subtotal)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <div className="p-tot-row"><span>Subtotal</span><span>{fmtRp(survey.grandTotal)}</span></div>
+        {survey.diskonNominal > 0 && <div className="p-tot-row"><span>Diskon</span><span style={{ color: "var(--red)" }}>− {fmtRp(survey.diskonNominal)}</span></div>}
+        <div className="p-grand"><span>Total Harga</span><span>{fmtRp(grandFinal)}</span></div>
+        {!isSPH && <div className="p-dp"><span>{PAY_LABELS[payType]}</span><span>{fmtRp(payAmount)}</span></div>}
+        <div className="p-terbi">Terbilang: {toWords(amount)}</div>
+        {isSPH && (<>
+          <p style={{ fontSize: 11, fontWeight: 700, marginBottom: 6 }}>Syarat & Ketentuan:</p>
+          <ul className="p-syarat">
+            <li>DP minimal 50% sebelum produksi dimulai</li>
+            <li>Sisa 50% dibayar saat selesai pemasangan</li>
+            <li>Harga tidak mengikat jika ada pekerjaan tambahan</li>
+            <li>Penawaran berlaku 14 hari sejak tanggal surat</li>
+          </ul>
+        </>)}
+        {!isSPH && <p style={{ fontSize: 10, color: "#555", marginTop: 6 }}>* Tidak menerima cash. Pelunasan max 1×24 jam setelah invoice.</p>}
+        <div className="p-rek">
+          <strong>Pembayaran via Transfer:</strong><br />
+          {CO.bank.map(b => <div key={b.no}>{b.name} | a.n. {b.an} | Rek. {b.no}</div>)}
+        </div>
+        <div className="p-ttd">Bogor, {survey.tgl}<br /><br /><br />Hormat kami,<br /><strong>({CO.owner})</strong></div>
+        <div style={{ marginTop: 16, background: "#fff0e8", border: "1px solid var(--orange)", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "var(--orange)" }}>
+          💡 Tap 🖨 Cetak / PDF → tab baru terbuka → dialog print otomatis muncul → pilih "Save as PDF" atau kirim ke printer.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── MAIN APP ───
+export default function App() {
+  const [page, setPage] = useState("survey");
+  const [docData, setDocData] = useState(null);
+  const [tab, setTab] = useState("form");
+  const [showPicker, setShowPicker] = useState(false);
+  const [surveys, setSurveys] = useState([]);
+  const [history, setHistory] = useState([]);
+  const [detail, setDetail] = useState(null);
+  const [showInv, setShowInv] = useState(false);
+  const [invSurvey, setInvSurvey] = useState(null);
+  const [nama, setNama] = useState("");
+  const [alamat, setAlamat] = useState("");
+  const [catatan, setCatatan] = useState("");
+  const [produkList, setProdukList] = useState([]);
+  const [showTotal, setShowTotal] = useState(false);
+  const [dMode, setDMode] = useState("%");
+  const [dInput, setDInput] = useState("");
+
+  useEffect(() => {
+    // Load surveys from localStorage
+    const surveyKeys = lsKeys("survey:");
+    const loadedSurveys = surveyKeys.map(k => lsGet(k)).filter(Boolean).sort((a, b) => b.id - a.id);
+    setSurveys(loadedSurveys);
+
+    const histKeys = lsKeys("history:");
+    const loadedHist = histKeys.map(k => lsGet(k)).filter(Boolean).sort((a, b) => b.id - a.id);
+    setHistory(loadedHist);
+  }, []);
+
+  const saveHistory = (survey, docType, payType, payAmount) => {
+    const PAY_LABELS = { DP1: "DP ke-1", DP2: "DP ke-2", LUNAS: "Pelunasan" };
+    const record = { docType, payType, payAmount, label: docType === "SPH" ? "SPH" : PAY_LABELS[payType], tgl: today() };
+    const existing = history.find(h => h.surveyId === survey.id);
+    if (existing) {
+      const updated = { ...existing, invoices: [...(existing.invoices || []), record] };
+      lsSet(`history:${existing.id}`, updated);
+      setHistory(prev => prev.map(h => h.id === existing.id ? updated : h));
+    } else {
+      const newEntry = {
+        id: Date.now(), surveyId: survey.id, nama: survey.nama, alamat: survey.alamat,
+        grandFinal: survey.grandFinal ?? survey.grandTotal, tglDeal: today(),
+        produkList: survey.produkList, invoices: [record],
+      };
+      lsSet(`history:${newEntry.id}`, newEntry);
+      setHistory(prev => [newEntry, ...prev]);
+    }
+  };
+
+  const tambah = p => { setProdukList(prev => [...prev, newProduk(p)]); setShowTotal(false); setDInput(""); };
+  const updateP = u => setProdukList(prev => prev.map(x => x.id === u.id ? u : x));
+  const hapusP = id => { setProdukList(prev => prev.filter(x => x.id !== id)); setShowTotal(false); setDInput(""); };
+
+  const grandTotal = produkList.reduce((s, p) => s + calcProdukVol(p.unit, p.areas) * (parseFloat(p.harga) || 0), 0);
+  const diskonNominal = (() => { const v = parseFloat(dInput) || 0; if (!v) return 0; return dMode === "%" ? Math.round(grandTotal * v / 100) : v; })();
+  const grandFinal = Math.max(0, grandTotal - diskonNominal);
+  const allFilled = produkList.length > 0 && produkList.every(p => calcProdukVol(p.unit, p.areas) > 0 && parseFloat(p.harga) > 0);
+  const valid = nama.trim() && alamat.trim() && allFilled;
+
+  const buildObj = () => {
+    const id = Date.now();
+    const enriched = produkList.map(p => ({ ...p, totalVol: calcProdukVol(p.unit, p.areas), subtotal: calcProdukVol(p.unit, p.areas) * (parseFloat(p.harga) || 0) }));
+    return { id, nama, alamat, catatan, produkList: enriched, grandTotal, diskonNominal, grandFinal, tgl: today() };
+  };
+
+  const goSPH = s => { setDocData({ survey: s, docType: "SPH", payType: null, payAmount: null }); setPage("doc"); };
+  const goINV = (s, pt, pa) => { setDocData({ survey: s, docType: "INV", payType: pt, payAmount: pa }); setPage("doc"); };
+
+  const simpan = () => {
+    if (!valid) return;
+    const item = buildObj();
+    lsSet(`survey:${item.id}`, item);
+    setSurveys(prev => [item, ...prev]);
+    setNama(""); setAlamat(""); setCatatan(""); setProdukList([]); setShowTotal(false); setDInput("");
+    setTab("list");
+  };
+
+  const hapusS = id => { lsDel(`survey:${id}`); setSurveys(prev => prev.filter(s => s.id !== id)); };
+
+  if (page === "doc" && docData) {
+    return <DocPage docData={docData} onBack={() => setPage("survey")} onDownloaded={saveHistory} />;
+  }
+
+  return (
+    <>
+      <div className="app">
+        <div className="top-bar">
+          <div className="top-icon">📋</div>
+          <div>
+            <div className="top-title">Survey Kanopi</div>
+            <div className="top-sub">Multi Proyek · Multi Area · Hitung Otomatis</div>
+          </div>
+          <div className="top-count">{surveys.length} data</div>
+        </div>
+
+        <div className="seg3">
+          <button className={`seg-btn ${tab === "form" ? "active" : ""}`} onClick={() => setTab("form")}>+ Survey</button>
+          <button className={`seg-btn ${tab === "list" ? "active" : ""}`} onClick={() => setTab("list")}>Riwayat ({surveys.length})</button>
+          <button className={`seg-btn ${tab === "history" ? "active" : ""}`}
+            onClick={() => setTab("history")}
+            style={tab === "history" ? { color: "var(--green)", borderBottomColor: "var(--green)" } : {}}>
+            📋 History ({history.length})
+          </button>
+        </div>
+
+        {tab === "form" && (<>
+          <div className="section">
+            <div className="sec-head"><div className="sec-num">1</div><div className="sec-title">Data Customer</div></div>
+            <div className="sec-body">
+              <div className="field">
+                <label>Nama Customer</label>
+                <input placeholder={nama || "Nama lengkap"} value={nama} onChange={e => setNama(e.target.value)} />
+              </div>
+              <div className="field">
+                <label>Alamat Lokasi</label>
+                <input placeholder="Alamat lengkap" value={alamat} onChange={e => setAlamat(e.target.value)} />
+              </div>
+              <div className="field" style={{ marginBottom: 0 }}>
+                <label>Catatan</label>
+                <textarea placeholder="Warna, permintaan khusus..." value={catatan} onChange={e => setCatatan(e.target.value)} style={{ minHeight: 50 }} />
+              </div>
+            </div>
+          </div>
+
+          <div className="section">
+            <div className="sec-head"><div className="sec-num">2</div><div className="sec-title">Proyek & Ukuran</div></div>
+            <div className="sec-body">
+              {produkList.map(p => <ProdukCard key={p.id} item={p} onUpdate={updateP} onDelete={hapusP} />)}
+              <button className="add-proyek-btn" onClick={() => setShowPicker(true)}>＋ Tambah Proyek</button>
+            </div>
+          </div>
+
+          <button className="kalkulasi-btn" disabled={!allFilled} onClick={() => setShowTotal(true)}>
+            🧮 {allFilled ? "Kalkulasi Total" : "Lengkapi ukuran & harga dulu"}
+          </button>
+
+          {showTotal && grandTotal > 0 && (
+            <div className="result-wrap">
+              <div className="total-card">
+                <div><div className="tc-label">Total Keseluruhan</div><div className="tc-sub">{produkList.length} item</div></div>
+                <div className="tc-val">{fmtRp(grandTotal)}</div>
+              </div>
+              <div className="diskon-box">
+                <span className="diskon-lbl">🏷️ Diskon</span>
+                <input className="diskon-in" type="number" min="0"
+                  placeholder={dMode === "%" ? "contoh: 5" : "contoh: 500000"}
+                  value={dInput} onChange={e => setDInput(e.target.value)} />
+                <div className="diskon-toggle">
+                  <button className={`dt-btn ${dMode === "%" ? "on" : ""}`} onClick={() => { setDMode("%"); setDInput(""); }}>%</button>
+                  <button className={`dt-btn ${dMode === "Rp" ? "on" : ""}`} onClick={() => { setDMode("Rp"); setDInput(""); }}>Rp</button>
+                </div>
+                {diskonNominal > 0 && <span className="diskon-nom">− {fmtRp(diskonNominal)}</span>}
+              </div>
+              <div className="grand-card">
+                <div><div className="gc-label">Grand Total</div>{diskonNominal > 0 && <div className="gc-sub">Setelah diskon</div>}</div>
+                <div className="gc-val">{fmtRp(grandFinal)}</div>
+              </div>
+              <div className="doc-btns">
+                <button className="btn-sph" onClick={() => goSPH(buildObj())}>📄 Kirim SPH</button>
+                <button className="btn-inv" onClick={() => { setInvSurvey(buildObj()); setShowInv(true); }}>🧾 Kirim Invoice</button>
+              </div>
+            </div>
+          )}
+
+          <button className="save-btn" onClick={simpan} disabled={!valid} style={{ marginTop: 12 }}>
+            {valid ? "💾 Simpan Data Survey" : "Lengkapi semua data dulu"}
+          </button>
+        </>)}
+
+        {tab === "list" && (<>
+          <div className="list-head">
+            <div className="list-title">Data Survey</div>
+            {surveys.length > 0 && (
+              <button className="clear-btn" onClick={() => {
+                if (!window.confirm("Hapus semua?")) return;
+                surveys.forEach(s => lsDel(`survey:${s.id}`));
+                setSurveys([]);
+              }}>Hapus Semua</button>
+            )}
+          </div>
+          {surveys.length === 0 ? (
+            <div className="empty-state"><div className="empty-icon">📋</div><div className="empty-txt">Belum ada data.<br />Tambah di Input Survey.</div></div>
+          ) : surveys.map(s => (
+            <div key={s.id} className="survey-card" onClick={() => setDetail(s)}>
+              <div className="sc-top">
+                <div className="sc-name">{s.nama}</div>
+                <button className="sc-del" onClick={e => { e.stopPropagation(); hapusS(s.id); }}>🗑</button>
+              </div>
+              <div className="sc-addr">📍 {s.alamat}</div>
+              <div className="sc-tags">
+                {s.produkList.map(p => <span key={p.id} className="sc-tag">{p.icon} {p.name}</span>)}
+                <span className="sc-tag">📅 {s.tgl}</span>
+              </div>
+              <div className="sc-total">
+                <div className="sc-total-l">Grand Total</div>
+                <div className="sc-total-v">{fmtRp(s.grandFinal ?? s.grandTotal)}</div>
+              </div>
+            </div>
+          ))}
+        </>)}
+
+        {tab === "history" && (<>
+          <div className="list-head"><div className="list-title">📋 History Project</div></div>
+          {history.length === 0 ? (
+            <div className="empty-state">
+              <div className="empty-icon">📋</div>
+              <div className="empty-txt">Belum ada project deal.<br />History otomatis tercatat saat download SPH / Invoice.</div>
+            </div>
+          ) : history.map(h => (
+            <div key={h.id} className="hist-card">
+              <div className="hist-top">
+                <div className="hist-name">{h.nama}</div>
+                <div className="hist-date">Deal: {h.tglDeal}</div>
+              </div>
+              <div className="hist-addr">📍 {h.alamat}</div>
+              <div className="hist-total">
+                <span className="hist-total-l">Grand Total</span>
+                <span className="hist-total-v">{fmtRp(h.grandFinal)}</span>
+              </div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.4px", marginBottom: 5 }}>Dokumen Diterbitkan</div>
+              <div className="inv-records">
+                {(h.invoices || []).map((inv, i) => (
+                  <div key={i} className="inv-rec">
+                    <div><div className="inv-rec-label">{inv.label}</div><div className="inv-rec-tgl">{inv.tgl}</div></div>
+                    <div className="inv-rec-amount">{inv.payAmount ? fmtRp(inv.payAmount) : "—"}</div>
+                  </div>
+                ))}
+              </div>
+              <button className="add-inv-btn" onClick={() => {
+                const fakeSurvey = {
+                  id: h.surveyId || h.id, nama: h.nama, alamat: h.alamat,
+                  catatan: "", produkList: h.produkList || [],
+                  grandTotal: h.grandFinal, diskonNominal: 0,
+                  grandFinal: h.grandFinal, tgl: today(),
+                };
+                setInvSurvey(fakeSurvey);
+                setShowInv(true);
+              }}>＋ Terbitkan Invoice Baru</button>
+            </div>
+          ))}
+        </>)}
+      </div>
+
+      {showPicker && <TambahProyekSheet onPick={tambah} onClose={() => setShowPicker(false)} />}
+
+      {showInv && invSurvey && (
+        <InvPicker survey={invSurvey}
+          onView={(pt, pa) => { setShowInv(false); goINV(invSurvey, pt, pa); }}
+          onClose={() => { setShowInv(false); setInvSurvey(null); }} />
+      )}
+
+      {detail && (
+        <div className="modal-bg" onClick={() => setDetail(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-handle" />
+            <div className="modal-name">{detail.nama}</div>
+            <div className="modal-date">📅 {detail.tgl}</div>
+            <div className="modal-row"><span className="ml">Alamat</span><span className="mr">{detail.alamat}</span></div>
+            {detail.catatan && <div className="modal-row"><span className="ml">Catatan</span><span className="mr">{detail.catatan}</span></div>}
+            <div className="m-sec">Detail Pekerjaan</div>
+            {detail.produkList.map(p => (
+              <div key={p.id} className="mpi">
+                <div className="mpi-top"><span style={{ fontSize: 16 }}>{p.icon}</span><span className="mpi-name">{p.name}</span></div>
+                <div className="mpi-detail">
+                  {p.areas.map(a => {
+                    const vol = calcVol(p.unit, a.dims);
+                    return (
+                      <div key={a.id}>
+                        {a.label ? <strong>{a.label}: </strong> : ""}
+                        {a.dims.map(d => {
+                          const pv = parseFloat(d.p) || 0, lv = parseFloat(d.l) || 0, tv = parseFloat(d.t) || 0;
+                          if (p.unit === "m" || p.unit === "unit") return fmtD(pv);
+                          if (p.unit === "m²") return `${fmtD(pv)}×${fmtD(lv)}`;
+                          return `${fmtD(pv)}×${fmtD(lv)}×${fmtD(tv)}`;
+                        }).join("+")} = {fmtD(vol)} {p.unit}
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="mpi-sub">Total {fmtD(p.totalVol)} {p.unit} × {fmtRp(p.harga)}/{p.unit} = <strong>{fmtRp(p.subtotal)}</strong></div>
+              </div>
+            ))}
+            <div className="m-tr"><span className="mtl">Subtotal</span><span className="mtv">{fmtRp(detail.grandTotal)}</span></div>
+            {detail.diskonNominal > 0 && <div className="m-tr"><span className="mtl" style={{ color: "var(--red)" }}>Diskon</span><span className="mtv" style={{ color: "var(--red)" }}>− {fmtRp(detail.diskonNominal)}</span></div>}
+            <div className="m-grand"><div className="mg-l">Grand Total</div><div className="mg-v">{fmtRp(detail.grandFinal ?? detail.grandTotal)}</div></div>
+            <div className="doc-btns" style={{ marginTop: 10 }}>
+              <button className="btn-sph" onClick={() => { setDetail(null); goSPH(detail); }}>📄 Kirim SPH</button>
+              <button className="btn-inv" onClick={() => { setInvSurvey(detail); setShowInv(true); }}>🧾 Kirim Invoice</button>
+            </div>
+            <button className="m-close" onClick={() => setDetail(null)}>Tutup</button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
