@@ -1,136 +1,15 @@
-"use client";
-
-import { useState, useEffect } from "react";
-
-// ===== UTIL =====
-const fmtRp = (n) =>
-  new Intl.NumberFormat("id-ID", {
-    style: "currency",
-    currency: "IDR",
-    maximumFractionDigits: 0,
-  }).format(n || 0);
-
-const today = () => new Date().toISOString().split("T")[0];
-
-// ===== STORAGE (FIXED) =====
-const storage = {
-  set: (key, value) => {
-    localStorage.setItem(key, JSON.stringify(value));
-  },
-  get: (key) => {
-    const val = localStorage.getItem(key);
-    return val ? JSON.parse(val) : null;
-  },
-  list: (prefix) => {
-    return Object.keys(localStorage)
-      .filter((k) => k.startsWith(prefix))
-      .map((k) => ({
-        key: k,
-        value: JSON.parse(localStorage.getItem(k)),
-      }));
-  },
-  delete: (key) => {
-    localStorage.removeItem(key);
-  },
-};
-
-// ===== APP =====
-export default function App() {
-  const [nama, setNama] = useState("");
-  const [luas, setLuas] = useState(0);
-  const [harga, setHarga] = useState(0);
-  const [data, setData] = useState([]);
-
-  // LOAD DATA
-  useEffect(() => {
-    const list = storage.list("survey:");
-    setData(list);
-  }, []);
-
-  // SAVE
-  const simpan = () => {
-    const key = "survey:" + Date.now();
-
-    const payload = {
-      nama,
-      luas,
-      harga,
-      total: luas * harga,
-      tanggal: today(),
-    };
-
-    storage.set(key, payload);
-
-    setData([...data, { key, value: payload }]);
-
-    // reset
-    setNama("");
-    setLuas(0);
-    setHarga(0);
-  };
-
-  // DELETE
-  const hapus = (key) => {
-    storage.delete(key);
-    setData(data.filter((d) => d.key !== key));
-  };
-
-  return (
-    <div style={{ padding: 20, fontFamily: "sans-serif" }}>
-      <h2>Estimator Kanopi</h2>
-
-      <div style={{ marginBottom: 20 }}>
-        <input
-          placeholder="Nama Project"
-          value={nama}
-          onChange={(e) => setNama(e.target.value)}
-        />
-        <br />
-
-        <input
-          type="number"
-          placeholder="Luas (m2)"
-          value={luas}
-          onChange={(e) => setLuas(Number(e.target.value))}
-        />
-        <br />
-
-        <input
-          type="number"
-          placeholder="Harga / m2"
-          value={harga}
-          onChange={(e) => setHarga(Number(e.target.value))}
-        />
-        <br />
-
-        <button onClick={simpan}>Simpan</button>
-      </div>
-
-      <h3>Data Survey</h3>
-
-      {data.map((item) => (
-        <div
-          key={item.key}
-          style={{
-            border: "1px solid #ccc",
-            padding: 10,
-            marginBottom: 10,
-          }}
-        >
-          <b>{item.value.nama}</b>
-          <br />
-          Luas: {item.value.luas} m2
-          <br />
-          Harga: {fmtRp(item.value.harga)}
-          <br />
-          Total: {fmtRp(item.value.total)}
-          <br />
-          Tanggal: {item.value.tanggal}
-          <br />
-
-          <button onClick={() => hapus(item.key)}>Hapus</button>
-        </div>
-      ))}
-    </div>
-  );
-}
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Kanopi Bogor Pro</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Geist+Mono:wght@400;500&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
